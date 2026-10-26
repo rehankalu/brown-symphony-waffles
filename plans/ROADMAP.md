@@ -163,11 +163,11 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 - GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
   the 1.5× cap threshold from them.
-- The Worker starts the workflow with `workflow_dispatch`, using a fine-grained PAT scoped
-  to this repo with only Actions: write. *Why:* `repository_dispatch` needs Contents: write,
-  which on a public repo lets a leaked token change code the workflow runs and expose its
-  secrets, the R2 keys among them. The PAT expires, so a rejected dispatch marks the Waffle
-  `failed` with a visible error.
+- The Worker starts the workflow with `workflow_dispatch`, which needs only Actions: write;
+  the dispatch token, the daily token expiry check and rejected dispatches are as in
+  [SPEC Transcode](../docs/SPEC.md#transcode).
+  *Why:* `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
+  token change code the workflow runs and expose its secrets, the R2 keys among them.
 - The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
   its button.
 
@@ -186,8 +186,8 @@ the owner's Retry takes the Waffle to `ready`.
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
 - This-week, Archive and Waffle screens; delete and the Retry button.
-- The PWA is installable only (a manifest and icons), with no offline caching. *Why:*
-  nothing works offline anyway, and a caching service worker risks a stale shell after a
+- The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
+  works offline anyway, and a caching service worker risks a stale shell after a
   deploy and intercepted R2 range requests.
 
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row

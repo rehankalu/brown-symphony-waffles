@@ -274,7 +274,7 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 - Member cells: empty or filled. Group cells: 0 to 4 shades for how many members posted.
 - The current week is outlined; future weeks are blank and not clickable.
 - Hover or tap shows the week and who posted; clicking a filled cell opens that Waffle (or the week in the archive if there are several).
-- Below the grid: each member's count for the year and current streak of consecutive weeks. The streak counts back from last week, plus the current week once the member has posted in it; an unposted current week never breaks it, so a streak breaks only when a week ends with no Waffle from that member.
+- Below the grid: each member's count for the year and current streak: the consecutive weeks with a Waffle from them, counting back from last week, plus the current week once they have posted in it.
 - Built as a plain CSS grid from `/api/heatmap`; no chart library needed.
 
 ## Cost, environments and domain
