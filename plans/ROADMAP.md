@@ -163,6 +163,7 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), with the lazy check
   from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), tested through the API;
   Phase 4 builds on them.
+- The CI check from **Untrusted inputs** in [SPEC Transcode](../docs/SPEC.md#transcode).
 
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
 from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
@@ -175,9 +176,13 @@ member's Retry is refused while the Waffle is still `failed`, leaving it `failed
 nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Waffle whose
 `processing_at` is backdated past 150 minutes reads as `failed` with "transcode did not
 report back" from both GET routes, and a `ready` Waffle with the same `processing_at` stays
-`ready`. With fixture
-GitHub responses, the token expiry check posts one alert for a token expiring within 14 days
-and one for a 401, and posts nothing for a missing expiry header or a 5xx.
+`ready`. With fixture GitHub responses, the token expiry check posts one alert for a token
+expiring within 14 days and one for a 401, and posts nothing for a missing expiry header or a
+5xx. A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
+metacharacters (for example `$(id)`) fails before downloading anything, the validation step's
+own output is only the fixed rejection message, and no callback arrives; a hand dispatch with
+`env=other` starts no run. The CI check fails on a branch that adds
+`${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds `set -ex`.
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
