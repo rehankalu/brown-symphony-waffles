@@ -321,9 +321,9 @@ Vars (non-secret, in the Wrangler config's `[vars]`): `GITHUB_REPO` (this reposi
 
 Build in seven phases, each ending in something the four of you can try; the riskiest parts (large uploads from phones, transcode time and size) come first.
 
-**Stack:** TypeScript throughout · SvelteKit with `@sveltejs/adapter-cloudflare` (UI and API in one Worker) · D1 with Drizzle ORM and its migrations · `aws4fetch` for R2 presigning in the Worker · a GitHub Actions workflow on `ubuntu-latest` with ffmpeg · Vitest for unit tests.
+**Stack:** see [`CLAUDE.md` § Stack](../CLAUDE.md#stack).
 
-Start the Claude Code session by giving it this doc and asking it to write a `CLAUDE.md` that records the stack, the folder layout, the commands (`dev`, `test`, `deploy`, `db:migrate`) and the Waffle-week rule.
+Start the Claude Code session by giving it this doc and `CLAUDE.md`, which already records the stack and the Waffle-week rule, and ask it to fill in CLAUDE.md's folder layout and commands (`dev`, `test`, `deploy`, `db:migrate`) as Phase 0 creates them.
 
 1. **Phase 0 — Scaffold.** Repo, SvelteKit app deployed to `workers.dev`, D1 database with the schema and migrations, R2 buckets with CORS and the lifecycle rule, secrets set.
    - Done when: the deployed app returns a page, and `db:migrate` runs locally and remotely.
