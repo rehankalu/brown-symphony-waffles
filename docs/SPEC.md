@@ -68,7 +68,9 @@ The video never passes through the Worker. R2 needs a CORS rule allowing `PUT` f
 
 ### Transcode
 
-Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Worker sends with the Waffle ID as an input. The Worker authenticates with a fine-grained PAT scoped to this repository with only the Actions: write permission, created with a one-year expiry. Steps:
+Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Worker sends with the Waffle ID as an input. The Worker authenticates with a fine-grained PAT scoped to this repository with only the Actions: write permission, created with a one-year expiry.
+
+**Dispatch target.** The Worker sends `POST /repos/{GITHUB_REPO}/actions/workflows/{GITHUB_WORKFLOW}/dispatches` with `ref: main` and two inputs: `waffle_id` and `env` (`prod` or `dev`, from the `TRANSCODE_ENV` var; see [Environments](#environments)). The workflow runs from `main`, so it must be merged there before the first dispatch. The Worker refuses to dispatch unless `TRANSCODE_ENV` is exactly `prod` or `dev`, and the workflow declares `env` as a `choice` input, so no other value starts a run. The workflow maps `env` to its bucket (`prod` → `waffles`, `dev` → `waffles-dev`). A `prod` run posts to `CALLBACK_BASE_URL` (a repository variable) followed by `/api/internal/transcode-callback`, so no URL appears in a run's public inputs; it fails before downloading anything if that variable is empty or does not start with `https://`. GitHub cannot reach `wrangler dev` on localhost, so a `dev` run writes to `waffles-dev` and always skips the callback. A local Waffle then finishes only through a signed callback sent by hand, or ends `failed` under the stuck-jobs rule below. Steps:
 
 1. Download the original from R2 with the S3 API.
 2. `ffprobe` it: codec, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
@@ -86,7 +88,7 @@ Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Wo
 - Any other status code, a network error or a timeout reads: "GitHub could not start the transcode. Your upload is safe. The uploader can press Retry later; if it keeps failing, tell the admin."
 - A timeout is ambiguous: GitHub may have started the run anyway, so a Retry can start a second run. This is accepted, since both runs encode the same untouched original.
 
-**Token expiry check.** The PAT (`GITHUB_DISPATCH_TOKEN`) expires, so the Worker checks it daily instead of waiting for a member's upload to fail. A Cron Trigger (`[triggers] crons = ["0 14 * * *"]`, 14:00 UTC) sends `GET /repos/<repo>/actions/workflows` (`<repo>` is this repository's `owner/name`) with the token; it reads the workflow list and starts no run.
+**Token expiry check.** The PAT (`GITHUB_DISPATCH_TOKEN`) expires, so the Worker checks it daily instead of waiting for a member's upload to fail. A Cron Trigger (`[triggers] crons = ["0 14 * * *"]`, 14:00 UTC) sends `GET /repos/{GITHUB_REPO}/actions/workflows` with the token; it reads the workflow list and starts no run.
 - A 401, 403 or 404 means the token is invalid or has lost access.
 - On a 2xx, the `github-authentication-token-expiration` response header gives the expiry as a UTC timestamp (for example `2026-11-01 00:00:00 UTC`). An expiry within 14 days counts as expiring. A missing header (a token with no expiry) never alerts; an unparseable one is treated like any other failure below.
 - An invalid or expiring token posts a fixed plain-text message, with no @mention, to the channel webhook (`DISCORD_WEBHOOK_URL`) once per daily run until the token is renewed. Expiring: "Admin: the GitHub token that starts transcodes expires on `YYYY-MM-DD`. Renew it before uploads fail; see the README's token rotation steps." Invalid: "Admin: GitHub refused the token that starts transcodes, so uploads will fail. Renew it; see the README's token rotation steps."
@@ -278,11 +280,13 @@ Waffles shot in 4K roughly triple the originals figure; the 1080p cap keeps thei
 
 ### Environments
 
-- **Local:** `wrangler dev` with a local D1 and a separate `waffles-dev` R2 bucket.
+- **Local:** `wrangler dev` with a local D1 and a separate `waffles-dev` R2 bucket. It cannot receive transcode callbacks (see [Transcode](#transcode)).
 - **Prototype:** deployed to `waffles.<account>.workers.dev`, with the real bucket and webhook pointed at a test Discord channel until launch.
 - **Production:** the same Worker on the custom domain after cutover.
 
 Secrets (set with `wrangler secret put`): `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID`, `DISCORD_WEBHOOK_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `GITHUB_DISPATCH_TOKEN` (the fine-grained PAT described in [Transcode](#transcode), rotated as the README describes), `TRANSCODE_CALLBACK_SECRET`, `SESSION_SECRET`. The GitHub workflow needs the R2 keys and the callback secret as repository secrets.
+
+Vars (non-secret, in the Wrangler config's `[vars]`): `GITHUB_REPO` (this repository's `owner/name`), `GITHUB_WORKFLOW` (the transcode workflow's file name, for example `transcode.yml`), `TRANSCODE_ENV` and `GROUP_TZ`. `[vars]` sets `TRANSCODE_ENV = "prod"` for the deployed Worker. Locally, `.dev.vars` overrides it with `dev`; that file also holds the local `GITHUB_DISPATCH_TOKEN`, so a checkout without it cannot dispatch at all. The workflow also needs the `CALLBACK_BASE_URL` repository variable: the deployed Worker's origin, `https://waffles.<account>.workers.dev` until the domain cutover.
 
 ### Domain cutover (after the prototype is proven)
 
@@ -290,8 +294,9 @@ Secrets (set with `wrangler secret put`): `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_S
 2. Add a custom domain to the Worker. Serve it at `waffles.brownsymphony.app`, leaving the apex free.
 3. Add the new redirect URI in the Discord developer portal, and set it as the app's OAuth callback.
 4. Add the new origin to the R2 bucket's CORS rule.
-5. Point the webhook at the real Waffles channel.
-6. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
+5. Set the `CALLBACK_BASE_URL` repository variable to `https://waffles.brownsymphony.app`, or transcode callbacks keep going to the workers.dev origin. Keep the workers.dev route enabled until no Waffle is `processing`, because a run that started before the change still reports to it.
+6. Point the webhook at the real Waffles channel.
+7. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
 
 ## Build plan
 
