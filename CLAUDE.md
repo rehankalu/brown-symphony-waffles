@@ -21,12 +21,12 @@ Each fact has one home. Link to it from elsewhere; never copy it.
 
 ## Stack
 
-- TypeScript throughout.
+- TypeScript throughout; npm as the package manager.
 - SvelteKit with `@sveltejs/adapter-cloudflare`: UI and API in one Cloudflare Worker.
 - D1 for metadata, via Drizzle ORM and its migrations.
 - R2 for every video (private buckets `waffles` and `waffles-dev`), presigned with `aws4fetch`.
 - Transcoding in a GitHub Actions workflow on `ubuntu-latest` with ffprobe/ffmpeg, started
-  by `repository_dispatch`; it reports back through an HMAC-signed callback.
+  by `workflow_dispatch`; it reports back through an HMAC-signed callback.
 - Discord OAuth for sign-in, a Discord channel webhook for notifications.
 - Vitest for unit tests.
 

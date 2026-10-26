@@ -49,8 +49,9 @@ component.
    R2 objects.
 5. **Show a participation heatmap: 52 weeks by 4 members for the selected year.**
    *Acceptance example:* the grid matches the archive for seeded test data, including a week
-   with two Waffles from one member and a Waffle filed to the previous week.
-   <decision: does a member's current streak count the in-progress week before they have posted in it>
+   with two Waffles from one member and a Waffle filed to the previous week, and a member who
+   has not yet posted in the current week keeps their streak (the streak rule is in
+   [`docs/SPEC.md`](../docs/SPEC.md#ui), under the participation heatmap).
 6. **Restrict access to members of the Discord server.** *Acceptance example:* all four
    members can sign in from their phones, and a Discord account outside the server cannot.
 
@@ -95,11 +96,17 @@ README. Keep each item to one or two sentences. -->
 - **One group time zone.** Waffle weeks run Wednesday to Tuesday in America/New_York
   (`GROUP_TZ`). *Why:* the cutoff is informal and one member in CT does not justify per-member
   weeks.
-- **Accepted risk: <name>.** <The risk the project deliberately carries, and the trigger
-  that makes it no longer acceptable.>
+- **Accepted risk: R2 holds the only copy.** Until the NAS backup exists, an R2 account
+  problem or a deleted Waffle loses its original for good. *Trigger:* retiring the WhatsApp
+  group at launch ends the de facto backup, so the NAS follow-on starts then.
 - **External dependencies.** Cloudflare (Workers, D1, R2), Discord (OAuth and the channel
-  webhook) and GitHub Actions (transcoding). <what happens if each one is unavailable>
-- <decision: package manager: npm or pnpm>
+  webhook) and GitHub Actions (transcoding). If Cloudflare is down, the whole app is down,
+  and an interrupted upload resumes afterwards. If Discord is down, new sign-ins fail but
+  existing sessions work, and a Waffle still reaches `ready` with only its channel post
+  failing. If GitHub is down, Waffles wait in `processing` or `failed` with the original
+  safe, and Retry re-dispatches them.
+- **npm is the package manager.** *Why:* it ships with Node, is what Wrangler and SvelteKit
+  document, and pnpm's install-speed gains do not matter for one small app.
 
 ## Phases
 
@@ -151,7 +158,10 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 - GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
   the 1.5× cap threshold from them.
-- <decision: credential the Worker uses for repository_dispatch: fine-grained PAT or GitHub App token>
+- The Worker starts the workflow with `workflow_dispatch`, using a fine-grained PAT scoped
+  to this repo with only Actions: write. *Why:* `repository_dispatch` needs Contents: write,
+  which on a public repo lets a leaked token rewrite the workflow and read the R2 secrets.
+  The PAT expires, so a rejected dispatch marks the Waffle `failed` with a visible error.
 
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip each play
 correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip
@@ -164,7 +174,9 @@ over the threshold comes out at 1080p.
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
 - This-week, Archive and Waffle screens; delete and retry.
-- <decision: PWA scope: installable only, or offline caching of the app shell>
+- The PWA is installable only (a manifest and icons), with no offline caching. *Why:*
+  nothing works offline anyway, and a caching service worker risks a stale shell after a
+  deploy and intercepted R2 range requests.
 
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row
 and all three R2 objects.

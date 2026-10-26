@@ -68,7 +68,7 @@ The video never passes through the Worker. R2 needs a CORS rule allowing `PUT` f
 
 ### Transcode
 
-Runs as a GitHub Actions workflow, started by a `repository_dispatch` event the Worker sends with the Waffle ID. Steps:
+Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Worker sends with the Waffle ID as an input. The Worker authenticates with a fine-grained PAT scoped to this repository with only the Actions: write permission; if GitHub rejects the dispatch, the Waffle is set to `failed` with the error text. Steps:
 
 1. Download the original from R2 with the S3 API.
 2. `ffprobe` it: codec, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
@@ -202,7 +202,7 @@ Only the uploader may abort, delete or retry their own Waffle. Any member may do
 
 ## UI
 
-The app is a mobile-first PWA with five screens; most uploads happen from a phone, so every screen must work one-handed at 375 px wide.
+The app is a mobile-first PWA with five screens, installable from the home screen (a manifest and icons) with no offline caching; most uploads happen from a phone, so every screen must work one-handed at 375 px wide.
 
 | Screen | Path | Contents |
 | --- | --- | --- |
@@ -229,7 +229,7 @@ The app is a mobile-first PWA with five screens; most uploads happen from a phon
 - Member cells: empty or filled. Group cells: 0 to 4 shades for how many members posted.
 - The current week is outlined; future weeks are blank and not clickable.
 - Hover or tap shows the week and who posted; clicking a filled cell opens that Waffle (or the week in the archive if there are several).
-- Below the grid: each member's count for the year and current streak of consecutive weeks.
+- Below the grid: each member's count for the year and current streak of consecutive weeks. The streak counts back from last week, plus the current week once the member has posted in it; an unposted current week never breaks it, so a streak breaks only when a week ends with no Waffle from that member.
 - Built as a plain CSS grid from `/api/heatmap`; no chart library needed.
 
 ## Cost, environments and domain
