@@ -163,8 +163,9 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   the 1.5× cap threshold from them.
 - The Worker starts the workflow with `workflow_dispatch`, using a fine-grained PAT scoped
   to this repo with only Actions: write. *Why:* `repository_dispatch` needs Contents: write,
-  which on a public repo lets a leaked token rewrite the workflow and read the R2 secrets.
-  The PAT expires, so a rejected dispatch marks the Waffle `failed` with a visible error.
+  which on a public repo lets a leaked token change code the workflow runs and expose its
+  secrets, the R2 keys among them. The PAT expires, so a rejected dispatch marks the Waffle
+  `failed` with a visible error.
 
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip each play
 correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip
