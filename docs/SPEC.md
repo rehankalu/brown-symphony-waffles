@@ -47,11 +47,11 @@ The phone uploads directly to R2 with presigned URLs. The Worker records metadat
 | Component | Role |
 | --- | --- |
 | Phone browser (PWA) | Sign in, upload, browse, play, heatmap |
-| Cloudflare Worker (SvelteKit) | UI, API, OAuth, presigned URLs, webhook calls |
+| Cloudflare Worker (SvelteKit) | UI, API, OAuth, presigned URLs, webhook calls, daily token check |
 | D1 | Members, Waffles, sessions |
 | R2 bucket `waffles` | Originals, playback MP4s, posters |
 | GitHub Actions | ffprobe and ffmpeg: remux or re-encode, poster frame |
-| Discord webhook | One message per ready Waffle |
+| Discord webhook | One message per ready Waffle, plus the admin's token expiry alert |
 
 ## Video pipeline
 
@@ -68,7 +68,7 @@ The video never passes through the Worker. R2 needs a CORS rule allowing `PUT` f
 
 ### Transcode
 
-Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Worker sends with the Waffle ID as an input. The Worker authenticates with a fine-grained PAT scoped to this repository with only the Actions: write permission. Steps:
+Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Worker sends with the Waffle ID as an input. The Worker authenticates with a fine-grained PAT scoped to this repository with only the Actions: write permission, created with a one-year expiry. Steps:
 
 1. Download the original from R2 with the S3 API.
 2. `ffprobe` it: codec, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
@@ -79,12 +79,19 @@ Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Wo
 5. Upload the playback MP4 and poster to R2.
 6. POST the results to the Worker's callback, signed with a shared HMAC secret. The Worker sets `status = ready` and posts to Discord (see [Discord notification](#discord-notification)); a failed post never changes `ready`. Any failure posts `status = failed` with the error text.
 
-**Stuck jobs.** The workflow job sets `timeout-minutes: 120`. A Waffle still `processing` 150 minutes after its last dispatch (120 minutes of run time plus 30 minutes of queue slack, which assumes a hosted runner picks the job up within 30 minutes) has a run that will never report back, so it is set to `failed` with the error "transcode did not report back". The check runs lazily, as one guarded statement (`UPDATE … SET status = 'failed', error = … WHERE status = 'processing' AND processing_at < now − 150 min`), so it can never overwrite a callback's `ready`. `GET /api/waffles` and `GET /api/waffles/:id` apply it before responding. The retry route applies it first, then requires `failed`, then sets `status = processing` and `processing_at = now` in one `UPDATE … WHERE status = 'failed'`, so a stuck Waffle can be retried and a double tap dispatches once. No scheduled job is needed. If Phase 3 encode times approach 120 minutes, raise both values together.
+**Stuck jobs.** The workflow job sets `timeout-minutes: 120`. A Waffle still `processing` 150 minutes after its last dispatch (120 minutes of run time plus 30 minutes of queue slack, which assumes a hosted runner picks the job up within 30 minutes) has a run that will never report back, so it is set to `failed` with the error "transcode did not report back". The check runs lazily, as one guarded statement (`UPDATE … SET status = 'failed', error = … WHERE status = 'processing' AND processing_at < now − 150 min`), so it can never overwrite a callback's `ready`. `GET /api/waffles` and `GET /api/waffles/:id` apply it before responding. The retry route applies it first, then requires `failed`, then sets `status = processing` and `processing_at = now` in one `UPDATE … WHERE status = 'failed'`, so a stuck Waffle can be retried and a double tap dispatches once. This rule needs no scheduled job; the Worker's one scheduled task, the token expiry check below, never touches Waffles. If Phase 3 encode times approach 120 minutes, raise both values together.
 
 **Rejected dispatch.** A dispatch, from `complete` or Retry, fails when GitHub answers anything but 2xx, or on a network error or timeout. The Waffle is then set to `failed` in one guarded `UPDATE … WHERE id = ? AND status = 'processing'`, so it never overwrites a callback's `ready`. `error` is stored as `<status code or network>: <fixed message>`; GitHub's response body and headers are never stored. The admin is the member who holds the Worker and GitHub secrets.
 - A 401, 403 or 404 usually means the token has expired or lost access: "GitHub refused the transcode request; its access token may have expired or the setup changed. Your upload is safe. Tell the admin; the uploader can press Retry once it is fixed."
 - Any other status code, a network error or a timeout reads: "GitHub could not start the transcode. Your upload is safe. The uploader can press Retry later; if it keeps failing, tell the admin."
 - A timeout is ambiguous: GitHub may have started the run anyway, so a Retry can start a second run. This is accepted, since both runs encode the same untouched original.
+
+**Token expiry check.** The PAT (`GITHUB_DISPATCH_TOKEN`) expires, so the Worker checks it daily instead of waiting for a member's upload to fail. A Cron Trigger (`[triggers] crons = ["0 14 * * *"]`, 14:00 UTC) sends `GET /repos/<repo>/actions/workflows` (`<repo>` is this repository's `owner/name`) with the token; it reads the workflow list and starts no run.
+- A 401, 403 or 404 means the token is invalid or has lost access.
+- On a 2xx, the `github-authentication-token-expiration` response header gives the expiry as a UTC timestamp (for example `2026-11-01 00:00:00 UTC`). An expiry within 14 days counts as expiring. A missing header (a token with no expiry) never alerts; an unparseable one is treated like any other failure below.
+- An invalid or expiring token posts a fixed plain-text message, with no @mention, to the channel webhook (`DISCORD_WEBHOOK_URL`) once per daily run until the token is renewed. Expiring: "Admin: the GitHub token that starts transcodes expires on `YYYY-MM-DD`. Renew it before uploads fail; see the README's token rotation steps." Invalid: "Admin: GitHub refused the token that starts transcodes, so uploads will fail. Renew it; see the README's token rotation steps."
+- Any other status code, a network error or an unparseable header alerts nothing and is checked again the next day. The alert post makes one attempt, with no retry and nothing stored, so a failed post is simply repeated the next day. Like the dispatch, the check never stores or logs GitHub's response body or headers, or the webhook URL; only the expiry date appears in the message.
+- Accepted: a rare rate-limit 403 raises a false "refused" alert that the next day's check clears, and a dead webhook silences the alert until a member reports a failed upload.
 
 Re-encode settings, the starting point to tune in Phase 3:
 
@@ -206,7 +213,7 @@ Only the uploader may abort, delete, retry or re-post their own Waffle. Any memb
 
 ### Discord notification
 
-- A channel webhook (URL kept as a Worker secret) posts once, when a Waffle reaches `ready`, never at upload start.
+- A channel webhook (URL kept as a Worker secret) posts once, when a Waffle reaches `ready`, never at upload start. The same webhook also carries the admin's alert from the [token expiry check](#transcode); the rules below cover Waffle posts only.
 - Message: "🧇 **Alex** posted a Waffle for the week of Oct 14 · 6:42" plus the caption and the app link `/w/{id}`. Post with `?wait=true` so Discord returns the message, and store its ID in `discord_message_id`.
 - Post only when `discord_message_id IS NULL`, and claim the post first with one guarded statement (`UPDATE … SET discord_posting_at = now WHERE status = 'ready' AND discord_message_id IS NULL AND (discord_posting_at IS NULL OR discord_posting_at < now − 2 min)`); only the request that changed the row posts. So a duplicate callback or a second tap on "Post to Discord again" can't post twice, and a claim left by a Worker that died mid-post expires after 2 minutes. The post's result clears `discord_posting_at`.
 - The callback posts after it responds (`ctx.waitUntil`), so a slow Discord never delays the GitHub job.
@@ -275,7 +282,7 @@ Waffles shot in 4K roughly triple the originals figure; the 1080p cap keeps thei
 - **Prototype:** deployed to `waffles.<account>.workers.dev`, with the real bucket and webhook pointed at a test Discord channel until launch.
 - **Production:** the same Worker on the custom domain after cutover.
 
-Secrets (set with `wrangler secret put`): `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID`, `DISCORD_WEBHOOK_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `GITHUB_DISPATCH_TOKEN`, `TRANSCODE_CALLBACK_SECRET`, `SESSION_SECRET`. The GitHub workflow needs the R2 keys and the callback secret as repository secrets.
+Secrets (set with `wrangler secret put`): `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID`, `DISCORD_WEBHOOK_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `GITHUB_DISPATCH_TOKEN` (the fine-grained PAT described in [Transcode](#transcode), rotated as the README describes), `TRANSCODE_CALLBACK_SECRET`, `SESSION_SECRET`. The GitHub workflow needs the R2 keys and the callback secret as repository secrets.
 
 ### Domain cutover (after the prototype is proven)
 
@@ -302,6 +309,7 @@ Start the Claude Code session by giving it this doc and asking it to write a `CL
    - Done when: each member uploads a real 10-minute Waffle from their own phone on mobile data and Wi-Fi, and the object in R2 is byte-identical to the original (compare size and SHA-256).
 4. **Phase 3 — Transcode.** GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
    - Done when: an iPhone HDR clip, an iPhone SDR clip and an Android clip each play correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows.
+   - Done when (token check): with fixture GitHub responses, a token expiring within 14 days and a 401 each post one alert, and a missing header or a 5xx posts nothing.
    - Record for each test clip: original size, playback size, encode time. Adjust CRF, preset and the 1.5× cap threshold from these, and confirm a 4K clip over the threshold comes out at 1080p.
 5. **Phase 4 — Browse and play.** This-week, Archive and Waffle screens; delete and retry.
    - Done when: seeking works mid-video on a phone, and deleting a Waffle removes the row and all three R2 objects.
