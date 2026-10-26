@@ -103,9 +103,11 @@ README. Keep each item to one or two sentences. -->
   webhook) and GitHub Actions (transcoding). If Cloudflare is down, the whole app is down,
   and an interrupted upload resumes afterwards. If Discord is down, new sign-ins fail but
   existing sessions work, and a Waffle still reaches `ready` with only its channel post
-  failing. If GitHub is down, Waffles end `failed` (a dispatch error, or a run that never
-  reports back; see [SPEC Transcode](../docs/SPEC.md#transcode)) with the original safe,
-  and Retry re-dispatches them.
+  failing; the owner can post it again later (see
+  [SPEC Discord notification](../docs/SPEC.md#discord-notification)). If GitHub is down,
+  Waffles end `failed` (a dispatch error, or a run that never reports back; see
+  [SPEC Transcode](../docs/SPEC.md#transcode)) with the original safe, and Retry
+  re-dispatches them.
 - **npm is the package manager.** *Why:* it ships with Node, is what Wrangler and SvelteKit
   document, and pnpm's install-speed gains do not matter for one small app.
 
@@ -188,10 +190,12 @@ and all three R2 objects.
 
 **Goal.** The group hears about each Waffle where they already talk. **Advances capabilities:** 3.
 
-- Webhook on `ready`, message deleted with the Waffle.
+- Webhook on `ready`, message deleted with the Waffle, and failed posts handled as in
+  [SPEC Discord notification](../docs/SPEC.md#discord-notification).
 
 **Exit criteria.** One message appears per ready Waffle, in a test channel first, with a
-working link.
+working link. A revoked webhook leaves the Waffle `ready` with Post to Discord again, and
+a duplicate callback posts once.
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
 

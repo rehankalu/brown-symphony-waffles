@@ -77,7 +77,7 @@ Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Wo
    - Otherwise (HEVC `.mov` from iPhones, HDR, other codecs): re-encode with the settings below.
 4. Extract a poster frame at about 1 second as a JPEG (1280 px wide).
 5. Upload the playback MP4 and poster to R2.
-6. POST the results to the Worker's callback, signed with a shared HMAC secret. The Worker sets `status = ready` and fires the Discord webhook. Any failure posts `status = failed` with the error text.
+6. POST the results to the Worker's callback, signed with a shared HMAC secret. The Worker sets `status = ready` and posts to Discord (see [Discord notification](#discord-notification)); a failed post never changes `ready`. Any failure posts `status = failed` with the error text.
 
 **Stuck jobs.** The workflow job sets `timeout-minutes: 120`. A Waffle still `processing` 150 minutes after its last dispatch (120 minutes of run time plus 30 minutes of queue slack, which assumes a hosted runner picks the job up within 30 minutes) has a run that will never report back, so it is set to `failed` with the error "transcode did not report back". The check runs lazily, as one guarded statement (`UPDATE … SET status = 'failed', error = … WHERE status = 'processing' AND processing_at < now − 150 min`), so it can never overwrite a callback's `ready`. `GET /api/waffles` and `GET /api/waffles/:id` apply it before responding. The retry route applies it first, then requires `failed`, then sets `status = processing` and `processing_at = now` in one `UPDATE … WHERE status = 'failed'`, so a stuck Waffle can be retried and a double tap dispatches once. No scheduled job is needed. If Phase 3 encode times approach 120 minutes, raise both values together.
 
@@ -144,6 +144,8 @@ CREATE TABLE waffles (
   uploaded_at        TEXT NOT NULL,
   ready_at           TEXT,
   discord_message_id TEXT,
+  discord_posting_at TEXT,              -- UTC ISO-8601, set while a Discord post is in flight
+  discord_error      TEXT,              -- why the last Discord post failed; NULL once a post succeeds
   error              TEXT
 );
 
@@ -189,17 +191,24 @@ Sign-in is Discord OAuth; a person gets in only if they belong to the friends' D
 | POST | `/api/uploads/:id/abort` | Abort upload, delete row |
 | GET | `/api/waffles` | List; filters `member`, `year`, `week_start`; newest first |
 | GET | `/api/waffles/:id` | Metadata plus presigned playback, poster and original URLs |
-| DELETE | `/api/waffles/:id` | Owner only: delete row and all three R2 objects |
+| DELETE | `/api/waffles/:id` | Owner only: delete row and all three R2 objects, and its Discord message if there is one |
 | POST | `/api/waffles/:id/retry` | Owner only: re-dispatch a failed transcode, including one that did not report back |
+| POST | `/api/waffles/:id/discord` | Owner only: post a `ready` Waffle that has no Discord message yet |
 | GET | `/api/heatmap?year=YYYY` | Week starts × members with counts |
 | POST | `/api/internal/transcode-callback` | From the GitHub job; HMAC-signed; sets ready or failed |
 
-Only the uploader may abort, delete or retry their own Waffle. Any member may download any Waffle's original; its presigned URL sets `Content-Disposition: attachment` with a readable name such as `2026-10-14_alex.mov`. Every `/api` route except the callback requires a session.
+Only the uploader may abort, delete, retry or re-post their own Waffle. Any member may download any Waffle's original; its presigned URL sets `Content-Disposition: attachment` with a readable name such as `2026-10-14_alex.mov`. Every `/api` route except the callback requires a session.
 
 ### Discord notification
 
 - A channel webhook (URL kept as a Worker secret) posts once, when a Waffle reaches `ready`, never at upload start.
-- Message: "🧇 **Alex** posted a Waffle for the week of Oct 14 · 6:42" plus the caption and the app link `/w/{id}`. Store the returned message ID in `discord_message_id` and delete that message if the Waffle is deleted.
+- Message: "🧇 **Alex** posted a Waffle for the week of Oct 14 · 6:42" plus the caption and the app link `/w/{id}`. Post with `?wait=true` so Discord returns the message, and store its ID in `discord_message_id`.
+- Post only when `discord_message_id IS NULL`, and claim the post first with one guarded statement (`UPDATE … SET discord_posting_at = now WHERE status = 'ready' AND discord_message_id IS NULL AND (discord_posting_at IS NULL OR discord_posting_at < now − 2 min)`); only the request that changed the row posts. So a duplicate callback or a second tap on "Post to Discord again" can't post twice, and a claim left by a Worker that died mid-post expires after 2 minutes. The post's result clears `discord_posting_at`.
+- The callback posts after it responds (`ctx.waitUntil`), so a slow Discord never delays the GitHub job.
+- A failed post never changes `ready`: the Waffle stays watchable. On a 429, wait the `Retry-After` time and try again, up to 3 attempts; a `Retry-After` over 10 seconds counts as a failure. Any other non-2xx response (a revoked webhook URL returns 401 or 404), a network error or a third 429 sets `discord_error` to the status code (or `network`) and a fixed message; the webhook URL and the response body are never stored. A successful post clears `discord_error`.
+- While a `ready` Waffle has no `discord_message_id` and no live claim, the owner's Waffle screen shows "Not posted to Discord" (with the `discord_error` text, if any) and a **Post to Discord again** action. Its route, `POST /api/waffles/:id/discord`, takes the same claim and runs the same post; it returns 409 when the Waffle is not `ready`, is already posted or is being posted.
+- Deleting a Waffle deletes its Discord message when `discord_message_id` is set. When it is NULL (never posted, or every post failed), there is nothing to delete and the Waffle is deleted without calling Discord. A failed message delete (including a 404 for a message already removed in Discord) never blocks deleting the Waffle.
+- Accepted limitation: a post that Discord accepted but whose response was lost (a network error or timeout), or that finishes after its Waffle was deleted, leaves a message the app has no ID for. A re-post then makes a second message, and the orphan is removed by hand in Discord.
 - The link sits behind sign-in, so Discord shows a plain link, not a preview. Adding a poster image to the embed would need a public or long-lived URL; leave it out of the MVP.
 - A bot is only worth adding later for slash commands (for example `/waffle status` to list who has not posted this week).
 
@@ -211,7 +220,7 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 | --- | --- | --- |
 | This week | `/` | Who has posted this Waffle week (4 avatars, filled or empty), the latest Waffles, a large Upload button |
 | Upload | `/upload` | File picker (`accept="video/*"`), caption, week selector (this week / last week), progress bar with MB sent and time left |
-| Waffle | `/w/:id` | Player, member, week, caption, duration; Download original; Delete and Retry for the owner |
+| Waffle | `/w/:id` | Player, member, week, caption, duration; Download original; Delete and Retry for the owner, and Post to Discord again while it has no Discord message |
 | Archive | `/archive` | Grid of poster cards grouped by week, newest first; filter by member and year |
 | Participation | `/participation` | The heatmap for a selected year |
 
@@ -291,14 +300,14 @@ Start the Claude Code session by giving it this doc and asking it to write a `CL
    - Record for each test clip: original size, playback size, encode time. Adjust CRF, preset and the 1.5× cap threshold from these, and confirm a 4K clip over the threshold comes out at 1080p.
 5. **Phase 4 — Browse and play.** This-week, Archive and Waffle screens; delete and retry.
    - Done when: seeking works mid-video on a phone, and deleting a Waffle removes the row and all three R2 objects.
-6. **Phase 5 — Discord.** Webhook on `ready`, message deleted with the Waffle.
-   - Done when: one message appears per ready Waffle, in a test channel first, with a working link.
+6. **Phase 5 — Discord.** Webhook on `ready`, message deleted with the Waffle, failed-post recording and Post to Discord again.
+   - Done when: one message appears per ready Waffle, in a test channel first, with a working link; a revoked webhook leaves the Waffle `ready` with Post to Discord again, and a duplicate callback posts once.
 7. **Phase 6 — Participation.** `/api/heatmap` and the heatmap screen.
    - Done when: the grid matches the archive for seeded test data, including a week with two Waffles from one member and a Waffle filed to the previous week.
 
 **Launch:** point the webhook at the real channel, use it for two Wednesdays alongside WhatsApp, then retire the WhatsApp group. Domain cutover can follow at any point after.
 
-**Tests worth writing:** the Waffle-week function (Tuesday 23:59 vs Wednesday 00:00 ET, and the daylight-saving changes), the HMAC callback check, the owner-only rules, the stuck-job check (149 vs 150 minutes after `processing_at`, and a Retry after it), and the heatmap query.
+**Tests worth writing:** the Waffle-week function (Tuesday 23:59 vs Wednesday 00:00 ET, and the daylight-saving changes), the HMAC callback check, the owner-only rules, the stuck-job check (149 vs 150 minutes after `processing_at`, and a Retry after it), the Discord post (two concurrent callbacks post once; a 429 retries after `Retry-After`; a failed post leaves `ready` and sets `discord_error`; a re-post clears it; a Delete with no message ID, or a 404 on the message delete, still deletes the Waffle), and the heatmap query.
 
 ## Follow-on: NAS backup
 
