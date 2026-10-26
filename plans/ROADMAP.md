@@ -49,9 +49,11 @@ component.
    R2 objects.
 5. **Show a participation heatmap: 52 weeks by 4 members for the selected year.**
    *Acceptance example:* the grid matches the archive for seeded test data, including a week
-   with two Waffles from one member and a Waffle filed to the previous week, and a member who
-   has not yet posted in the current week keeps their streak (the streak rule is in
-   [`docs/SPEC.md`](../docs/SPEC.md#ui), under the participation heatmap).
+   with two Waffles from one member, a Waffle filed to the previous week, and Waffles at
+   Tuesday 23:59:59 and Wednesday 00:00:00 ET in consecutive weeks. A member who has not yet
+   posted in the current week keeps their streak, and a past week with no Waffle from them
+   breaks it (rules: SPEC [Waffle week](../docs/SPEC.md#waffle-week) and
+   [UI](../docs/SPEC.md#ui)).
 6. **Restrict access to members of the Discord server.** *Acceptance example:* all four
    members can sign in from their phones, and a Discord account outside the server cannot.
 
@@ -166,10 +168,16 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   which on a public repo lets a leaked token change code the workflow runs and expose its
   secrets, the R2 keys among them. The PAT expires, so a rejected dispatch marks the Waffle
   `failed` with a visible error.
+- The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
+  its button.
 
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip each play
 correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip
-over the threshold comes out at 1080p.
+over the threshold comes out at 1080p. With an invalid dispatch token, a completed upload
+ends `failed` with the token message from [SPEC Transcode](../docs/SPEC.md#transcode), the
+token appears in no stored error, API response or Worker log, and the original stays in R2.
+After a rejected dispatch, another member's Retry is refused and dispatches nothing, and then
+the owner's Retry takes the Waffle to `ready`.
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
@@ -177,13 +185,14 @@ over the threshold comes out at 1080p.
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week, Archive and Waffle screens; delete and retry.
+- This-week, Archive and Waffle screens; delete and the Retry button.
 - The PWA is installable only (a manifest and icons), with no offline caching. *Why:*
   nothing works offline anyway, and a caching service worker risks a stale shell after a
   deploy and intercepted R2 range requests.
 
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row
-and all three R2 objects.
+and all three R2 objects. Added to the home screen from Safari on iOS and Chrome on Android,
+the app opens standalone with its name and icon, and no service worker is registered.
 
 **Why here.** It needs ready playback copies from Phase 3.
 
@@ -207,7 +216,9 @@ a duplicate callback posts once.
 - `/api/heatmap` and the heatmap screen.
 
 **Exit criteria.** The grid matches the archive for seeded test data, including a week with
-two Waffles from one member and a Waffle filed to the previous week.
+two Waffles from one member, a Waffle filed to the previous week, and Waffles at Tuesday
+23:59:59 and Wednesday 00:00:00 ET in consecutive weeks. A member who has not yet posted in
+the current week keeps their streak, and a past week with no Waffle from them breaks it.
 
 **Why here.** It is a read-only view over Waffles the earlier phases create.
 
