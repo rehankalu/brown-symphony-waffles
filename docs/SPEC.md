@@ -305,19 +305,24 @@ Waffles shot in 4K roughly triple the originals figure; the 1080p cap keeps thei
 - **Prototype:** deployed to `waffles.<account>.workers.dev`, with the real bucket and webhook pointed at a test Discord channel until launch.
 - **Production:** the same Worker on the custom domain after cutover.
 
-Secrets (set with `wrangler secret put`): `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID`, `DISCORD_WEBHOOK_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `GITHUB_DISPATCH_TOKEN` (the fine-grained PAT described in [Transcode](#transcode), rotated as the README describes), `TRANSCODE_CALLBACK_SECRET`, `SESSION_SECRET`. The GitHub workflow needs the R2 keys, the callback secret and `CALLBACK_BASE_URL` (the deployed Worker's origin, `https://waffles.<account>.workers.dev` until the domain cutover) as repository secrets.
+Secrets (set with `wrangler secret put`): `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID`, `DISCORD_WEBHOOK_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `GITHUB_DISPATCH_TOKEN` (the fine-grained PAT described in [Transcode](#transcode), rotated as the README describes), `TRANSCODE_CALLBACK_SECRET`, `SESSION_SECRET`. One R2 API token covers both buckets, `waffles` and `waffles-dev`, so the same R2 keys serve the deployed Worker, local dev and the workflow. The GitHub workflow needs the R2 keys, the callback secret and `CALLBACK_BASE_URL` (the deployed Worker's origin, `https://waffles.<account>.workers.dev` until the domain cutover) as repository secrets.
 
-Vars (non-secret, in the Wrangler config's `[vars]`): `GITHUB_REPO` (this repository's `owner/name`), `GITHUB_WORKFLOW` (the transcode workflow's file name, for example `transcode.yml`), `TRANSCODE_ENV` and `GROUP_TZ`. `[vars]` sets `TRANSCODE_ENV = "prod"` for the deployed Worker. Locally, `.dev.vars` overrides it with `dev`; that file also holds the local `GITHUB_DISPATCH_TOKEN`, so a checkout without it cannot dispatch at all.
+Vars (non-secret, in the Wrangler config's `[vars]`): `GITHUB_REPO` (this repository's `owner/name`), `GITHUB_WORKFLOW` (the transcode workflow's file name, for example `transcode.yml`), `TRANSCODE_ENV`, `GROUP_TZ`, `R2_BUCKET` (the bucket the Worker presigns and deletes in) and `APP_ORIGIN` (the app's public origin, with no trailing slash). The Worker builds the OAuth `redirect_uri` (`APP_ORIGIN` + `/auth/callback`) and the Discord post's `/w/{id}` link from `APP_ORIGIN`. `[vars]` sets `TRANSCODE_ENV = "prod"`, `R2_BUCKET = "waffles"` and `APP_ORIGIN = "https://waffles.<account>.workers.dev"` for the deployed Worker.
+
+Local dev reads `.dev.vars` (gitignored), which overrides `TRANSCODE_ENV` with `dev`, `R2_BUCKET` with `waffles-dev` and `APP_ORIGIN` with the local dev server's origin (for example `http://localhost:8787` under `wrangler dev`). It also holds a local value for every secret above (its `DISCORD_WEBHOOK_URL` points at the test channel), so a checkout without the file cannot dispatch at all.
+
+Two settings outside the repo make local sign-in and upload work: the Discord app lists the local `APP_ORIGIN` + `/auth/callback` as a second redirect URI, and the `waffles-dev` bucket's CORS rule (see [Upload](#upload)) allows the local `APP_ORIGIN`. Both must match it exactly, port included.
 
 ### Domain cutover (after the prototype is proven)
 
 1. Buy `brownsymphony.app` and use Cloudflare for its DNS.
 2. Add a custom domain to the Worker. Serve it at `waffles.brownsymphony.app`, leaving the apex free.
-3. Add the new redirect URI in the Discord developer portal, and set it as the app's OAuth callback.
-4. Add the new origin to the R2 bucket's CORS rule.
-5. Set the `CALLBACK_BASE_URL` repository secret to `https://waffles.brownsymphony.app`, or transcode callbacks keep going to the workers.dev origin. Keep the workers.dev route enabled until no Waffle is `processing`, because a run that started before the change still reports to it.
-6. Point the webhook at the real Waffles channel.
-7. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
+3. Add `https://waffles.brownsymphony.app/auth/callback` as a redirect URI in the Discord developer portal.
+4. Add the new origin to the `waffles` bucket's CORS rule.
+5. Set the `APP_ORIGIN` var to `https://waffles.brownsymphony.app` and redeploy, so sign-in redirects and Discord links use the new origin.
+6. Set the `CALLBACK_BASE_URL` repository secret to `https://waffles.brownsymphony.app`, or transcode callbacks keep going to the workers.dev origin. Keep the workers.dev route enabled until no Waffle is `processing`, because a run that started before the change still reports to it.
+7. Point the webhook at the real Waffles channel.
+8. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
 
 ## Build plan
 
