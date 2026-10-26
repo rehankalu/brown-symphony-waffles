@@ -163,7 +163,11 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), with the lazy check
   from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), tested through the API;
   Phase 4 builds on them.
-- The CI check from **Untrusted inputs** in [SPEC Transcode](../docs/SPEC.md#transcode).
+- The CI check and the validation script with its tests from **Untrusted inputs** in
+  [SPEC Transcode](../docs/SPEC.md#transcode).
+- Land the CI check first, make it a required status check on `main` as **Untrusted inputs**
+  states, then merge the transcode workflow. Classic branch protection lists only checks that
+  have reported in the past 7 days, so set the rule soon after the check's first run.
 
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
 from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
@@ -179,10 +183,12 @@ report back" from both GET routes, and a `ready` Waffle with the same `processin
 `ready`. With fixture GitHub responses, the token expiry check posts one alert for a token
 expiring within 14 days and one for a 401, and posts nothing for a missing expiry header or a
 5xx. A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
-metacharacters (for example `$(id)`) fails before downloading anything, the validation step's
-own output is only the fixed rejection message, and no callback arrives; a hand dispatch with
+metacharacters (for example `$(id)`) fails before downloading anything, the validation script's
+output is only the fixed rejection message, and no callback arrives; a hand dispatch with
 `env=other` starts no run. The CI check fails on a branch that adds
-`${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds `set -ex`.
+`${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds `set -ex`,
+and GitHub refuses to merge either branch into `main`. The validation script's tests from
+**Untrusted inputs** pass in CI.
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
