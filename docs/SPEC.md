@@ -227,7 +227,7 @@ Sign-in is Discord OAuth; a person gets in only if they belong to the friends' D
 | DELETE | `/api/waffles/:id` | Owner only: delete row and all three R2 objects, and its Discord message if there is one |
 | POST | `/api/waffles/:id/retry` | Owner only: re-dispatch a failed transcode, including one that did not report back |
 | POST | `/api/waffles/:id/discord` | Owner only: post a `ready` Waffle that has no Discord message yet |
-| GET | `/api/heatmap?year=YYYY` | Week starts × members with counts |
+| GET | `/api/heatmap?year=YYYY` | Week starts × members with counts, plus each member's streak for that year (current or best, per [UI](#ui)) |
 | POST | `/api/internal/transcode-callback` | From the GitHub job; HMAC-signed; sets ready or failed (see [Transcode](#transcode)) |
 
 Only the uploader may abort, delete, retry or re-post their own Waffle. Any member may download any Waffle's original; its presigned URL sets `Content-Disposition: attachment` with a readable name such as `2026-10-14_alex.mov`. Every `/api` route except the callback requires a session.
@@ -274,7 +274,9 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 - Member cells: empty or filled. Group cells: 0 to 4 shades for how many members posted.
 - The current week is outlined; future weeks are blank and not clickable.
 - Hover or tap shows the week and who posted; clicking a filled cell opens that Waffle (or the week in the archive if there are several).
-- Below the grid: each member's count for the year and current streak: the consecutive weeks with a Waffle from them, counting back from last week, plus the current week once they have posted in it.
+- Below the grid: each member's count for the year and a streak. A streak is a run of consecutive weeks with a Waffle from them, and it carries across calendar years: a week in late December and the next week in early January continue one run.
+  - Current year: **Current streak**, the run counting back from last week, plus the current week once they have posted in it.
+  - Past year: **Best YYYY streak** (for example "Best 2025 streak") replaces it: the longest run they reached in any week of that year, counting the weeks a run carried in from earlier years.
 - Built as a plain CSS grid from `/api/heatmap`; no chart library needed.
 
 ## Cost, environments and domain
@@ -342,7 +344,7 @@ Start the Claude Code session by giving it this doc and `CLAUDE.md`, which alrea
 6. **Phase 5 — Discord.** Webhook on `ready`, message deleted with the Waffle, failed-post recording and Post to Discord again.
    - Done when: one message appears per ready Waffle, in a test channel first, with a working link; a revoked webhook leaves the Waffle `ready` with Post to Discord again, and a duplicate callback posts once.
 7. **Phase 6 — Participation.** `/api/heatmap` and the heatmap screen.
-   - Done when: the grid matches the archive for seeded test data, including a week with two Waffles from one member, a Waffle filed to the previous week, and Waffles uploaded at Tuesday 23:59:59 and Wednesday 00:00:00 ET, in both an EST and an EDT week, landing in consecutive weeks (seeds get `week_start` from `uploaded_at` through the Waffle-week function); a member who has not yet posted in the current week keeps their streak, posting in it adds one, and a past week with no Waffle from them breaks it.
+   - Done when: the grid matches the archive for seeded test data, including a week with two Waffles from one member, a Waffle filed to the previous week, and Waffles uploaded at Tuesday 23:59:59 and Wednesday 00:00:00 ET, in both an EST and an EDT week, landing in consecutive weeks (seeds get `week_start` from `uploaded_at` through the Waffle-week function); a member who has not yet posted in the current week keeps their streak, posting in it adds one, a past week with no Waffle from them breaks it, a run spanning the last week of one year and the first week of the next counts as one streak, and a past year shows "Best YYYY streak" instead of the current streak.
 
 **Launch:** point the webhook at the real channel, use it for two Wednesdays alongside WhatsApp, then retire the WhatsApp group. Domain cutover can follow at any point after.
 

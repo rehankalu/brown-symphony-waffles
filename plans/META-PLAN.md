@@ -110,9 +110,8 @@ holds its supersession note, not edges; readers skip it. -->
 > The Assumed starting state for every remaining feature unless its section says
 > otherwise. Describe what *is*, never what changed.
 
-**Stack.** Chosen, not yet installed: TypeScript, SvelteKit with
-`@sveltejs/adapter-cloudflare` on Cloudflare Workers, D1 with Drizzle ORM, R2 presigned with
-`aws4fetch`, a GitHub Actions ffmpeg workflow, Vitest. No code exists yet.
+**Stack.** Chosen, not yet installed: see [`CLAUDE.md` § Stack](../CLAUDE.md#stack). No
+code exists yet.
 
 **Domain model.** None yet.
 

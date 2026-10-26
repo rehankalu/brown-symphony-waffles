@@ -51,8 +51,9 @@ component.
    *Acceptance example:* the grid matches the archive for seeded test data, including a week
    with two Waffles from one member, a Waffle filed to the previous week, and Waffles at
    Tuesday 23:59:59 and Wednesday 00:00:00 ET in consecutive weeks. A member who has not yet
-   posted in the current week keeps their streak, and a past week with no Waffle from them
-   breaks it (rules: SPEC [Waffle week](../docs/SPEC.md#waffle-week) and
+   posted in the current week keeps their streak, a past week with no Waffle from them
+   breaks it, a run across New Year counts as one streak, and a past year shows its best
+   streak (rules: SPEC [Waffle week](../docs/SPEC.md#waffle-week) and
    [UI](../docs/SPEC.md#ui)).
 6. **Restrict access to members of the Discord server.** *Acceptance example:* all four
    members can sign in from their phones, and a Discord account outside the server cannot.
@@ -218,7 +219,8 @@ a duplicate callback posts once.
 **Exit criteria.** The grid matches the archive for seeded test data, including a week with
 two Waffles from one member, a Waffle filed to the previous week, and Waffles at Tuesday
 23:59:59 and Wednesday 00:00:00 ET in consecutive weeks. A member who has not yet posted in
-the current week keeps their streak, and a past week with no Waffle from them breaks it.
+the current week keeps their streak, a past week with no Waffle from them breaks it, a run
+across New Year counts as one streak, and a past year shows "Best YYYY streak".
 
 **Why here.** It is a read-only view over Waffles the earlier phases create.
 
