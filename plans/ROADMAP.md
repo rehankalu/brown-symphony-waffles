@@ -159,15 +159,23 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   token change code the workflow runs and expose its secrets, the R2 keys among them.
 - The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
   its button.
+- `GET /api/waffles` and `GET /api/waffles/:id` as in
+  [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), with the lazy check
+  from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), tested through the API;
+  Phase 4 builds on them.
 
-**Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip each play
-correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip
-over the threshold comes out at 1080p. With an invalid dispatch token, a completed upload
-ends `failed` with the token message from **Rejected dispatch** in
+**Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
+from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
+Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip over the
+threshold comes out at 1080p. With an invalid dispatch token, a completed upload ends
+`failed` with the token message from **Rejected dispatch** in
 [SPEC Transcode](../docs/SPEC.md#transcode), the token appears in no stored error, API
 response or Worker log, and the original stays in R2. After a rejected dispatch, another
 member's Retry is refused while the Waffle is still `failed`, leaving it `failed` with
-nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. With fixture
+nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Waffle whose
+`processing_at` is backdated past 150 minutes reads as `failed` with "transcode did not
+report back" from both GET routes, and a `ready` Waffle with the same `processing_at` stays
+`ready`. With fixture
 GitHub responses, the token expiry check posts one alert for a token expiring within 14 days
 and one for a 401, and posts nothing for a missing expiry header or a 5xx.
 
@@ -177,7 +185,7 @@ and one for a 401, and posts nothing for a missing expiry header or a 5xx.
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week, Archive and Waffle screens; delete and the Retry button.
+- This-week, Archive and Waffle screens and the player; delete and the Retry button.
 - The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
   works offline anyway, and a caching service worker risks a stale shell after a
   deploy and intercepted R2 range requests.
@@ -187,7 +195,7 @@ and all three R2 objects. Added to the home screen from Safari on iOS and Chrome
 the app opens standalone with its name and icon, and
 `navigator.serviceWorker.getRegistrations()` returns an empty list.
 
-**Why here.** It needs ready playback copies from Phase 3.
+**Why here.** It needs ready playback copies and the read routes from Phase 3.
 
 ### Phase 5: Discord · planned
 
