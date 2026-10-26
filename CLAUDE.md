@@ -15,6 +15,7 @@ parsing) come from ~/.claude/CLAUDE.md and are not repeated here. -->
 | Where is the project going, and why in this order? | `plans/ROADMAP.md` |
 | What is the next feature, and what does the code look like now? | `plans/META-PLAN.md` |
 | How is a given feature being built? | `plans/<topic>/<slug>.md` |
+| What exactly should the MVP do (data model, API, pipeline, UI)? | `docs/SPEC.md` |
 
 Each fact has one home. Link to it from elsewhere; never copy it.
 
