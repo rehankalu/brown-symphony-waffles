@@ -321,30 +321,11 @@ Vars (non-secret, in the Wrangler config's `[vars]`): `GITHUB_REPO` (this reposi
 
 ## Build plan
 
-Build in seven phases, each ending in something the four of you can try; the riskiest parts (large uploads from phones, transcode time and size) come first.
+Build in seven phases, Phase 0 to Phase 6. Each phase's goal, scope and exit criteria live in [ROADMAP § Phases](../plans/ROADMAP.md#phases).
 
 **Stack:** see [`CLAUDE.md` § Stack](../CLAUDE.md#stack).
 
 Start the Claude Code session by giving it this doc and `CLAUDE.md`, which already records the stack and the Waffle-week rule, and ask it to fill in CLAUDE.md's folder layout and commands (`dev`, `test`, `deploy`, `db:migrate`) as Phase 0 creates them.
-
-1. **Phase 0 — Scaffold.** Repo, SvelteKit app deployed to `workers.dev`, D1 database with the schema and migrations, R2 buckets with CORS and the lifecycle rule, secrets set.
-   - Done when: the deployed app returns a page, and `db:migrate` runs locally and remotely.
-2. **Phase 1 — Sign-in.** Discord OAuth, guild and `members` checks, sessions, the four members seeded.
-   - Done when: all four can sign in from their phones, and a Discord account outside the server cannot.
-3. **Phase 2 — Upload.** Multipart upload to R2 with presigned parts, progress, retry, resume, abort.
-   - Done when: each member uploads a real 10-minute Waffle from their own phone on mobile data and Wi-Fi, and the object in R2 is byte-identical to the original (compare size and SHA-256).
-4. **Phase 3 — Transcode.** GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback, and the owner-only retry route (tested through the API; Phase 4 adds its button).
-   - Done when: an iPhone HDR clip, an iPhone SDR clip and an Android clip each play correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows.
-   - Done when (rejected dispatch): with an invalid `GITHUB_DISPATCH_TOKEN`, `complete` ends the Waffle `failed` with the token message from **Rejected dispatch** in [Transcode](#transcode), the token appears in no stored error, API response or Worker log, and the original stays in R2.
-   - Done when (token check): with fixture GitHub responses, a token expiring within 14 days and a 401 each post one alert, and a missing header or a 5xx posts nothing.
-   - Done when (Retry, through the API): after a rejected dispatch, another member's Retry is refused by the owner check while the Waffle is still `failed`, leaving it `failed` with nothing dispatched; then the owner's Retry takes it to `ready`.
-   - Record for each test clip: original size, playback size, encode time. Adjust CRF, preset and the 1.5× cap threshold from these, and confirm a 4K clip over the threshold comes out at 1080p.
-5. **Phase 4 — Browse and play.** This-week, Archive and Waffle screens; delete and the Retry button.
-   - Done when: seeking works mid-video on a phone, and deleting a Waffle removes the row and all three R2 objects; added to the home screen from Safari on iOS and Chrome on Android, the app opens standalone with its name and icon, and `navigator.serviceWorker.getRegistrations()` returns an empty list.
-6. **Phase 5 — Discord.** Webhook on `ready`, message deleted with the Waffle, failed-post recording and Post to Discord again.
-   - Done when: one message appears per ready Waffle, in a test channel first, with a working link; a revoked webhook leaves the Waffle `ready` with Post to Discord again, and a duplicate callback posts once.
-7. **Phase 6 — Participation.** `/api/heatmap` and the heatmap screen.
-   - Done when: the grid matches the archive for seeded test data, including a week with two Waffles from one member, a Waffle filed to the previous week, and Waffles uploaded at Tuesday 23:59:59 and Wednesday 00:00:00 ET, in both an EST and an EDT week, landing in consecutive weeks (seeds get `week_start` from `uploaded_at` through the Waffle-week function); a member who has not yet posted in the current week keeps their streak, posting in it adds one, a past week with no Waffle from them breaks it, a run spanning the last week of one year and the first week of the next counts as one streak, and a past year shows "Best YYYY streak" instead of the current streak.
 
 **Launch:** point the webhook at the real channel, use it for two Wednesdays alongside WhatsApp, then retire the WhatsApp group. Domain cutover can follow at any point after.
 

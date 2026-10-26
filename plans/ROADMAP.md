@@ -33,30 +33,18 @@ The numbered capabilities define "done". Each is a user-observable outcome, neve
 component.
 
 1. **Upload a Waffle from a phone browser.** Up to about 2 GB and 15 minutes, without an app
-   install. *Acceptance example:* each member uploads a real 10-minute Waffle from their own
-   phone on mobile data and Wi-Fi, and the object in R2 is byte-identical to the original
-   (same size and SHA-256).
+   install. *Acceptance:* Phase 2's exit criteria.
 2. **Keep the original and produce one playback copy.** H.264/AAC MP4 at the original
    resolution and frame rate, visually close to the source, capped at 1080p when that copy
-   would exceed 1.5× the original's size. *Acceptance example:* an iPhone HDR clip, an iPhone
-   SDR clip and an Android clip each play correctly in Safari on iOS, Chrome on Android and
-   Chrome or Edge on Windows, and a 4K clip over the threshold comes out at 1080p.
-3. **Post to the Discord Waffles channel when a Waffle is ready to watch.** *Acceptance
-   example:* one message appears per ready Waffle, in a test channel first, with a working
-   link, and the message is deleted with the Waffle.
-4. **Browse and play every Waffle, filtered by member and week.** *Acceptance example:*
-   seeking works mid-video on a phone, and deleting a Waffle removes the row and all three
-   R2 objects.
+   would exceed 1.5× the original's size. *Acceptance:* Phase 3's exit criteria.
+3. **Post to the Discord Waffles channel when a Waffle is ready to watch.** *Acceptance:*
+   Phase 5's exit criteria.
+4. **Browse and play every Waffle, filtered by member and week.** *Acceptance:* Phase 4's
+   exit criteria.
 5. **Show a participation heatmap: 52 weeks by 4 members for the selected year.**
-   *Acceptance example:* the grid matches the archive for seeded test data, including a week
-   with two Waffles from one member, a Waffle filed to the previous week, and Waffles at
-   Tuesday 23:59:59 and Wednesday 00:00:00 ET in consecutive weeks. A member who has not yet
-   posted in the current week keeps their streak, a past week with no Waffle from them
-   breaks it, a run across New Year counts as one streak, and a past year shows its best
-   streak (rules: SPEC [Waffle week](../docs/SPEC.md#waffle-week) and
-   [UI](../docs/SPEC.md#ui)).
-6. **Restrict access to members of the Discord server.** *Acceptance example:* all four
-   members can sign in from their phones, and a Discord account outside the server cannot.
+   *Acceptance:* Phase 6's exit criteria.
+6. **Restrict access to members of the Discord server.** *Acceptance:* Phase 1's exit
+   criteria.
 
 ### Out of scope
 
@@ -175,10 +163,13 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip each play
 correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip
 over the threshold comes out at 1080p. With an invalid dispatch token, a completed upload
-ends `failed` with the token message from [SPEC Transcode](../docs/SPEC.md#transcode), the
-token appears in no stored error, API response or Worker log, and the original stays in R2.
-After a rejected dispatch, another member's Retry is refused and dispatches nothing, and then
-the owner's Retry takes the Waffle to `ready`.
+ends `failed` with the token message from **Rejected dispatch** in
+[SPEC Transcode](../docs/SPEC.md#transcode), the token appears in no stored error, API
+response or Worker log, and the original stays in R2. After a rejected dispatch, another
+member's Retry is refused while the Waffle is still `failed`, leaving it `failed` with
+nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. With fixture
+GitHub responses, the token expiry check posts one alert for a token expiring within 14 days
+and one for a 401, and posts nothing for a missing expiry header or a 5xx.
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
@@ -193,7 +184,8 @@ the owner's Retry takes the Waffle to `ready`.
 
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row
 and all three R2 objects. Added to the home screen from Safari on iOS and Chrome on Android,
-the app opens standalone with its name and icon, and no service worker is registered.
+the app opens standalone with its name and icon, and
+`navigator.serviceWorker.getRegistrations()` returns an empty list.
 
 **Why here.** It needs ready playback copies from Phase 3.
 
@@ -205,8 +197,8 @@ the app opens standalone with its name and icon, and no service worker is regist
   [SPEC Discord notification](../docs/SPEC.md#discord-notification).
 
 **Exit criteria.** One message appears per ready Waffle, in a test channel first, with a
-working link. A revoked webhook leaves the Waffle `ready` with Post to Discord again, and
-a duplicate callback posts once.
+working link, and the message is deleted with the Waffle. A revoked webhook leaves the
+Waffle `ready` with Post to Discord again, and a duplicate callback posts once.
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
 
@@ -218,9 +210,13 @@ a duplicate callback posts once.
 
 **Exit criteria.** The grid matches the archive for seeded test data, including a week with
 two Waffles from one member, a Waffle filed to the previous week, and Waffles at Tuesday
-23:59:59 and Wednesday 00:00:00 ET in consecutive weeks. A member who has not yet posted in
-the current week keeps their streak, a past week with no Waffle from them breaks it, a run
-across New Year counts as one streak, and a past year shows "Best YYYY streak".
+23:59:59 and Wednesday 00:00:00 ET landing in consecutive weeks, in both an EST and an EDT
+week (seeds get `week_start` from `uploaded_at` through the Waffle-week function). A member
+who has not yet posted in the current week keeps their streak, posting in it adds one, a
+past week with no Waffle from them breaks it, a run spanning the last week of one year and
+the first week of the next counts as one streak, and a past year shows "Best YYYY streak"
+instead of the current streak (rules: SPEC [Waffle week](../docs/SPEC.md#waffle-week) and
+[UI](../docs/SPEC.md#ui)).
 
 **Why here.** It is a read-only view over Waffles the earlier phases create.
 
