@@ -68,7 +68,7 @@ The video never passes through the Worker. R2 needs a CORS rule allowing `PUT` f
 
 ### Transcode
 
-Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Worker sends with the Waffle ID as an input. The Worker authenticates with a fine-grained PAT scoped to this repository with only the Actions: write permission; if GitHub rejects the dispatch, the Waffle is set to `failed` with the error text. Steps:
+Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Worker sends with the Waffle ID as an input. The Worker authenticates with a fine-grained PAT scoped to this repository with only the Actions: write permission. Steps:
 
 1. Download the original from R2 with the S3 API.
 2. `ffprobe` it: codec, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
@@ -80,6 +80,11 @@ Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Wo
 6. POST the results to the Worker's callback, signed with a shared HMAC secret. The Worker sets `status = ready` and posts to Discord (see [Discord notification](#discord-notification)); a failed post never changes `ready`. Any failure posts `status = failed` with the error text.
 
 **Stuck jobs.** The workflow job sets `timeout-minutes: 120`. A Waffle still `processing` 150 minutes after its last dispatch (120 minutes of run time plus 30 minutes of queue slack, which assumes a hosted runner picks the job up within 30 minutes) has a run that will never report back, so it is set to `failed` with the error "transcode did not report back". The check runs lazily, as one guarded statement (`UPDATE … SET status = 'failed', error = … WHERE status = 'processing' AND processing_at < now − 150 min`), so it can never overwrite a callback's `ready`. `GET /api/waffles` and `GET /api/waffles/:id` apply it before responding. The retry route applies it first, then requires `failed`, then sets `status = processing` and `processing_at = now` in one `UPDATE … WHERE status = 'failed'`, so a stuck Waffle can be retried and a double tap dispatches once. No scheduled job is needed. If Phase 3 encode times approach 120 minutes, raise both values together.
+
+**Rejected dispatch.** A dispatch, from `complete` or Retry, fails when GitHub answers anything but 2xx, or on a network error or timeout. The Waffle is then set to `failed` in one guarded `UPDATE … WHERE id = ? AND status = 'processing'`, so it never overwrites a callback's `ready`. `error` is stored as `<status code or network>: <fixed message>`; GitHub's response body and headers are never stored. The admin is the member who holds the Worker and GitHub secrets.
+- A 401, 403 or 404 usually means the token has expired or lost access: "GitHub refused the transcode request; its access token may have expired or the setup changed. Your upload is safe. Tell the admin; the uploader can press Retry once it is fixed."
+- Any other status code, a network error or a timeout reads: "GitHub could not start the transcode. Your upload is safe. The uploader can press Retry later; if it keeps failing, tell the admin."
+- A timeout is ambiguous: GitHub may have started the run anyway, so a Retry can start a second run. This is accepted, since both runs encode the same untouched original.
 
 Re-encode settings, the starting point to tune in Phase 3:
 
@@ -146,7 +151,7 @@ CREATE TABLE waffles (
   discord_message_id TEXT,
   discord_posting_at TEXT,              -- UTC ISO-8601, set while a Discord post is in flight
   discord_error      TEXT,              -- why the last Discord post failed; NULL once a post succeeds
-  error              TEXT
+  error              TEXT               -- why the Waffle failed; shown with Retry
 );
 
 CREATE INDEX waffles_week   ON waffles(week_start);
@@ -307,7 +312,7 @@ Start the Claude Code session by giving it this doc and asking it to write a `CL
 
 **Launch:** point the webhook at the real channel, use it for two Wednesdays alongside WhatsApp, then retire the WhatsApp group. Domain cutover can follow at any point after.
 
-**Tests worth writing:** the Waffle-week function (Tuesday 23:59 vs Wednesday 00:00 ET, and the daylight-saving changes), the HMAC callback check, the owner-only rules, the stuck-job check (149 vs 150 minutes after `processing_at`, and a Retry after it), the Discord post (two concurrent callbacks post once; a 429 retries after `Retry-After`; a failed post leaves `ready` and sets `discord_error`; a re-post clears it; a Delete with no message ID, or a 404 on the message delete, still deletes the Waffle), and the heatmap query.
+**Tests worth writing:** the Waffle-week function (Tuesday 23:59 vs Wednesday 00:00 ET, and the daylight-saving changes), the HMAC callback check, the owner-only rules, the stuck-job check (149 vs 150 minutes after `processing_at`, and a Retry after it), a rejected dispatch from `complete` and from Retry (a 401 stores `401:` and the token message; a 500 or a network error stores the generic message; neither stores anything from GitHub's response), the Discord post (two concurrent callbacks post once; a 429 retries after `Retry-After`; a failed post leaves `ready` and sets `discord_error`; a re-post clears it; a Delete with no message ID, or a 404 on the message delete, still deletes the Waffle), and the heatmap query.
 
 ## Follow-on: NAS backup
 
