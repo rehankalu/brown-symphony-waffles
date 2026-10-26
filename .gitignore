@@ -1,0 +1,36 @@
+# --- base (always) ---
+.env
+.env.*
+*.pem
+*.key
+secrets/
+credentials/
+.claude/skill-config.md
+.claude/settings.local.json
+.claude/.cc-writes/
+plans/**/tmp/
+.DS_Store
+*:Zone.Identifier
+
+# --- node (if used) ---
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# --- sveltekit / wrangler ---
+.svelte-kit/
+build/
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# --- local data (videos and member data never live in this public repo) ---
+*.db
+*.db-*
+*.sqlite
+*.bak
+*.mov
+*.mp4
+*.m4v

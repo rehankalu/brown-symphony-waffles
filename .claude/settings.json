@@ -1,0 +1,11 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "network": {
+      "allowedDomains": ["registry.npmjs.org", "api.cloudflare.com", "dash.cloudflare.com", "discord.com", "github.com", "api.github.com"]
+    },
+    "filesystem": {
+      "allowWrite": ["/home/rmila/Code/brown-symphony-waffles", "/tmp"]
+    }
+  }
+}
