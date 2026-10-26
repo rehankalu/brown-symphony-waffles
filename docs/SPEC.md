@@ -62,7 +62,7 @@ Every Waffle keeps its untouched original and gets one playback MP4 (H.264 High,
 1. The browser asks the Worker to start an upload. The Worker creates the `waffles` row (`status = uploading`) and an R2 multipart upload, and returns the upload ID and object key.
 2. The browser requests presigned part URLs in batches and PUTs 50 MiB parts straight to R2, 3 to 4 at a time, retrying each part up to 3 times.
 3. Uploaded part numbers and ETags are kept in `localStorage`, so a dropped connection resumes instead of restarting.
-4. The browser calls `complete`. The Worker finishes the multipart upload, sets `status = processing`, and dispatches the transcode job.
+4. The browser calls `complete`. The Worker finishes the multipart upload, sets `status = processing` and `processing_at`, and dispatches the transcode job.
 
 The video never passes through the Worker. R2 needs a CORS rule allowing `PUT` from the app origin and exposing the `ETag` header, or the browser cannot read part ETags.
 
@@ -78,6 +78,8 @@ Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Wo
 4. Extract a poster frame at about 1 second as a JPEG (1280 px wide).
 5. Upload the playback MP4 and poster to R2.
 6. POST the results to the Worker's callback, signed with a shared HMAC secret. The Worker sets `status = ready` and fires the Discord webhook. Any failure posts `status = failed` with the error text.
+
+**Stuck jobs.** The workflow job sets `timeout-minutes: 120`. A Waffle still `processing` 150 minutes after its last dispatch (120 minutes of run time plus 30 minutes of queue slack, which assumes a hosted runner picks the job up within 30 minutes) has a run that will never report back, so it is set to `failed` with the error "transcode did not report back". The check runs lazily, as one guarded statement (`UPDATE … SET status = 'failed', error = … WHERE status = 'processing' AND processing_at < now − 150 min`), so it can never overwrite a callback's `ready`. `GET /api/waffles` and `GET /api/waffles/:id` apply it before responding. The retry route applies it first, then requires `failed`, then sets `status = processing` and `processing_at = now` in one `UPDATE … WHERE status = 'failed'`, so a stuck Waffle can be retried and a double tap dispatches once. No scheduled job is needed. If Phase 3 encode times approach 120 minutes, raise both values together.
 
 Re-encode settings, the starting point to tune in Phase 3:
 
@@ -126,6 +128,7 @@ CREATE TABLE waffles (
   member_id          TEXT NOT NULL REFERENCES members(discord_id),
   week_start         TEXT NOT NULL,     -- 'YYYY-MM-DD', the Wednesday that opens the Waffle week
   status             TEXT NOT NULL,     -- uploading | processing | ready | failed
+  processing_at      TEXT,              -- UTC ISO-8601, set at each dispatch (complete, retry)
   caption            TEXT,
   original_key       TEXT NOT NULL,
   original_bytes     INTEGER,
@@ -187,7 +190,7 @@ Sign-in is Discord OAuth; a person gets in only if they belong to the friends' D
 | GET | `/api/waffles` | List; filters `member`, `year`, `week_start`; newest first |
 | GET | `/api/waffles/:id` | Metadata plus presigned playback, poster and original URLs |
 | DELETE | `/api/waffles/:id` | Owner only: delete row and all three R2 objects |
-| POST | `/api/waffles/:id/retry` | Owner only: re-dispatch a failed transcode |
+| POST | `/api/waffles/:id/retry` | Owner only: re-dispatch a failed transcode, including one that did not report back |
 | GET | `/api/heatmap?year=YYYY` | Week starts × members with counts |
 | POST | `/api/internal/transcode-callback` | From the GitHub job; HMAC-signed; sets ready or failed |
 
@@ -295,7 +298,7 @@ Start the Claude Code session by giving it this doc and asking it to write a `CL
 
 **Launch:** point the webhook at the real channel, use it for two Wednesdays alongside WhatsApp, then retire the WhatsApp group. Domain cutover can follow at any point after.
 
-**Tests worth writing:** the Waffle-week function (Tuesday 23:59 vs Wednesday 00:00 ET, and the daylight-saving changes), the HMAC callback check, the owner-only rules, and the heatmap query.
+**Tests worth writing:** the Waffle-week function (Tuesday 23:59 vs Wednesday 00:00 ET, and the daylight-saving changes), the HMAC callback check, the owner-only rules, the stuck-job check (149 vs 150 minutes after `processing_at`, and a Retry after it), and the heatmap query.
 
 ## Follow-on: NAS backup
 

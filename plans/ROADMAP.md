@@ -103,8 +103,9 @@ README. Keep each item to one or two sentences. -->
   webhook) and GitHub Actions (transcoding). If Cloudflare is down, the whole app is down,
   and an interrupted upload resumes afterwards. If Discord is down, new sign-ins fail but
   existing sessions work, and a Waffle still reaches `ready` with only its channel post
-  failing. If GitHub is down, Waffles wait in `processing` or `failed` with the original
-  safe, and Retry re-dispatches them.
+  failing. If GitHub is down, Waffles end `failed` (a dispatch error, or a run that never
+  reports back; see [SPEC Transcode](../docs/SPEC.md#transcode)) with the original safe,
+  and Retry re-dispatches them.
 - **npm is the package manager.** *Why:* it ships with Node, is what Wrangler and SvelteKit
   document, and pnpm's install-speed gains do not matter for one small app.
 
