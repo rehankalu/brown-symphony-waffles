@@ -49,7 +49,8 @@ component.
 ### Out of scope
 
 - Importing historical Waffles from WhatsApp. The archive starts on launch day.
-- NAS backup: a documented follow-on after launch, not MVP.
+- NAS backup: a follow-on after launch, not MVP (see
+  [SPEC Follow-on: NAS backup](../docs/SPEC.md#follow-on-nas-backup)).
 - Comments, reactions or editing in the app. Discussion stays in Discord.
 - Adaptive streaming (HLS/DASH), multiple renditions, or a native mobile app.
 
@@ -77,28 +78,21 @@ reason. Verified code facts that must not regress are META-PLAN Standing invaria
 command-level operating rules (exact backup commands, test commands) belong in CLAUDE.md /
 README. Keep each item to one or two sentences. -->
 
-- **Public repo, private data.** Videos and member data live only in R2 and D1; Actions logs
-  carry Waffle IDs only and every credential is a secret. *Why:* the repo is public so
-  Actions minutes are free, which makes its logs public too.
-- **Video bytes never pass through the Worker.** Uploads and playback use presigned R2 URLs.
-  *Why:* Worker request limits, and R2 egress is free.
-- **The original is kept untouched.** *Why:* the playback copy can be regenerated; the
-  original cannot.
-- **One group time zone.** Waffle weeks run Wednesday to Tuesday in America/New_York
-  (`GROUP_TZ`). *Why:* the cutoff is informal and one member in CT does not justify per-member
-  weeks.
+- **The project rules.** The rules in [CLAUDE.md § Project rules](../CLAUDE.md#project-rules)
+  shape every phase. *Why each:*
+  - Waffle week: the cutoff is informal, and one member in CT does not justify per-member weeks.
+  - Public repo: Actions minutes are free on a public repo, which makes its logs public too.
+  - Video bytes skip the Worker: Worker request limits, and R2 egress is free.
+  - Original untouched: the playback copy can be regenerated; the original cannot.
 - **Accepted risk: R2 holds the only copy.** Until the NAS backup exists, an R2 account
   problem or a deleted Waffle loses its original for good. *Trigger:* retiring the WhatsApp
   group at launch ends the de facto backup, so the NAS follow-on starts then.
 - **External dependencies.** Cloudflare (Workers, D1, R2), Discord (OAuth and the channel
-  webhook) and GitHub Actions (transcoding). If Cloudflare is down, the whole app is down,
-  and an interrupted upload resumes afterwards. If Discord is down, new sign-ins fail but
-  existing sessions work, and a Waffle still reaches `ready` with only its channel post
-  failing; the owner can post it again later (see
-  [SPEC Discord notification](../docs/SPEC.md#discord-notification)). If GitHub is down,
-  Waffles end `failed` (a dispatch error, or a run that never reports back; see
-  [SPEC Transcode](../docs/SPEC.md#transcode)) with the original safe, and Retry
-  re-dispatches them.
+  webhook) and GitHub Actions (transcoding). If Cloudflare is down, the whole app is down. If
+  Discord is down, new sign-ins fail ([SPEC Auth](../docs/SPEC.md#auth)) but existing sessions
+  work. How uploads, Discord posts and transcodes recover:
+  [SPEC Upload](../docs/SPEC.md#upload), [SPEC Discord notification](../docs/SPEC.md#discord-notification)
+  and [SPEC Transcode](../docs/SPEC.md#transcode).
 - **npm is the package manager.** *Why:* it ships with Node, is what Wrangler and SvelteKit
   document, and pnpm's install-speed gains do not matter for one small app.
 
@@ -158,10 +152,10 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
   the 1.5× cap threshold from them. Merge each tuning change to `main` before dispatching it
   (rule: **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).
-- The Worker starts the workflow with `workflow_dispatch`, which needs only Actions: write;
-  the dispatch token, the daily token expiry check and rejected dispatches are as in
-  [SPEC Transcode](../docs/SPEC.md#transcode).
-  *Why:* `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
+- The Worker starts the workflow with `workflow_dispatch`; the dispatch token, the daily
+  token expiry check and rejected dispatches are as in [SPEC Transcode](../docs/SPEC.md#transcode).
+  *Why `workflow_dispatch`:* it needs only the Actions: write permission SPEC names, while
+  `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
   token change code the workflow runs and expose its secrets, the R2 keys among them.
 - The token expiry check's `scheduled` handler, added to Phase 0's custom Worker entry as in
   **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
