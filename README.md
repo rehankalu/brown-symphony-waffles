@@ -40,3 +40,22 @@ If members see "The daily GitHub token check has failed for 3 days" on the This-
 or the channel gets that message, read the `token check` lines in the Worker's logs
 (Cloudflare dashboard → the Worker → Logs) and fix what they name; the banner goes at the next
 passing check (see [SPEC Transcode](docs/SPEC.md#transcode)).
+
+### Transcodes that did not report back
+
+A Waffle that a run never reported back for fails with "The transcode did not report back"
+(the **Stuck jobs** rule in [SPEC Transcode](docs/SPEC.md#transcode)). The usual causes, such
+as a callback secret mismatch or an unreachable callback URL, show only in the repository's
+Actions tab. So the admin:
+
+1. Once, turns on GitHub's notifications for failed workflow runs (GitHub → Settings →
+   Notifications → System → Actions → "Only notify for failed workflows"). GitHub notifies
+   the account that started the run, which for a Worker dispatch is the owner of
+   `GITHUB_DISPATCH_TOKEN`, so that account must be the admin's. This covers callback and
+   step failures; a run that timed out may show as cancelled, and one that never started
+   sends nothing.
+2. When a member says a Retry failed again, opens the recent failed or cancelled runs in the
+   Actions tab around the time of that Waffle's upload or Retry, finds the one whose log names
+   the Waffle's ID (the last part of its `/w/{id}` link), sees which step failed, and fixes
+   the cause. If no run names that ID, the run never started; check
+   [GitHub Status](https://www.githubstatus.com) for Actions. The uploader then presses Retry.

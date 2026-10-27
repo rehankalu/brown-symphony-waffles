@@ -178,9 +178,10 @@ threshold comes out at 1080p. With an invalid dispatch token, a completed upload
 response or Worker log, and the original stays in R2. After a rejected dispatch, another
 member's Retry is refused while the Waffle is still `failed`, leaving it `failed` with
 nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Waffle whose
-`processing_at` is backdated past 150 minutes reads as `failed` with "transcode did not
-report back" from both GET routes, and a `ready` Waffle with the same `processing_at` stays
-`ready`. With fixture GitHub responses, the token expiry check posts one alert for a token
+`processing_at` is backdated past 150 minutes reads as `failed` with the **Stuck jobs**
+message from [SPEC Transcode](../docs/SPEC.md#transcode) in both GET routes, and a `ready`
+Waffle with the same `processing_at` stays `ready`.
+With fixture GitHub responses, the token expiry check posts one alert for a token
 expiring within 14 days and one for a 401, and posts nothing for a missing expiry header, an
 unparseable one or a 5xx; the unparseable header and the 5xx each write their fixed
 `token check:` line to the Worker log, and a failed alert post writes its
