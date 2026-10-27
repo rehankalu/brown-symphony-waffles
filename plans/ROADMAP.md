@@ -159,6 +159,8 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   [SPEC Transcode](../docs/SPEC.md#transcode).
   *Why:* `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
   token change code the workflow runs and expose its secrets, the R2 keys among them.
+- The custom Worker entry that adds the token expiry check's `scheduled` handler, and its
+  build step, as in **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
 - The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
   its button.
 - `GET /api/waffles` and `GET /api/waffles/:id` as in
@@ -191,7 +193,11 @@ unparseable one or a 5xx; the unparseable header and the 5xx each write their fi
 `token_check` row. Three consecutive failed runs leave `token_check.consecutive_failures` at 3
 and post one "failed for 3 days" message, a fourth failed run posts no second one, a failed
 "failed for 3 days" post writes its log line and is not retried, and a passing run resets the
-count to 0 (rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)). A
+count to 0 (rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the check through the
+`scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture)
+and updates the `token_check` row, while the same Worker still serves a page and an `/api`
+route. A
 hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
 metacharacters (for example `$(id)`) fails before downloading anything, the validation
 script's output is only the fixed rejection message, and no callback arrives; a hand dispatch

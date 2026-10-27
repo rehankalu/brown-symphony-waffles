@@ -53,6 +53,8 @@ The phone uploads directly to R2 with presigned URLs. The Worker records metadat
 | GitHub Actions | ffprobe and ffmpeg: remux or re-encode, poster frame |
 | Discord webhook | One message per ready Waffle, plus the admin's token expiry alert |
 
+**Worker entry.** `@sveltejs/adapter-cloudflare` builds a Worker that exports only a `fetch` handler (`.svelte-kit/cloudflare/_worker.js`), so a Cron Trigger would have nothing to call. A small custom entry, `src/worker.ts`, imports that output and exports an object with a `fetch` that passes `request`, `env` and `ctx` to the adapter's `fetch` unchanged, plus a `scheduled` handler that runs the token expiry check (see [Transcode](#transcode)). The Wrangler config's `main` points at `src/worker.ts` and keeps the adapter's assets block (`directory = ".svelte-kit/cloudflare"`, `binding = "ASSETS"`), so pages, static files and bindings behave as without the wrapper. Its `[build] command = "npm run build"` (the `build` script is `vite build`) makes `wrangler dev` and `wrangler deploy` build the adapter output before Wrangler bundles the entry. `vite dev` never runs the entry, so the scheduled handler runs locally only under `wrangler dev`.
+
 ## Video pipeline
 
 Every Waffle keeps its untouched original and gets one playback MP4 (H.264, AAC, SDR, original resolution and frame rate) that plays on iOS, Android, Windows, macOS and every current browser.
@@ -121,7 +123,7 @@ The job gives each callback request a 20-second timeout and signs every attempt 
 - Any other status code, a network error or a timeout reads: "GitHub could not start the transcode. Your upload is safe. The uploader can press Retry later; if it keeps failing, tell the admin."
 - A timeout is ambiguous: GitHub may have started the run anyway, so a Retry can start a second run. This is accepted, since both runs encode the same untouched original (see **Racing runs** above).
 
-**Token expiry check.** The PAT (`GITHUB_DISPATCH_TOKEN`) expires, so the Worker checks it daily instead of waiting for a member's upload to fail. A Cron Trigger (`[triggers] crons = ["0 14 * * *"]`, 14:00 UTC) sends `GET /repos/{GITHUB_REPO}/actions/workflows` with the token; it reads the workflow list and starts no run.
+**Token expiry check.** The PAT (`GITHUB_DISPATCH_TOKEN`) expires, so the Worker checks it daily instead of waiting for a member's upload to fail. A Cron Trigger (`[triggers] crons = ["0 14 * * *"]`, 14:00 UTC) calls the Worker's `scheduled` handler (see **Worker entry** in [Architecture](#architecture)), which sends `GET /repos/{GITHUB_REPO}/actions/workflows` with the token; it reads the workflow list and starts no run.
 - A 401, 403 or 404 means the token is invalid or has lost access.
 - On a 2xx, the `github-authentication-token-expiration` response header gives the expiry as a UTC timestamp (for example `2026-11-01 00:00:00 UTC`). An expiry within 14 days counts as expiring. A missing header (a token with no expiry) never alerts; an unparseable one is treated like any other failure below.
 - An invalid or expiring token posts a fixed plain-text message, with no @mention, to the channel webhook (`DISCORD_WEBHOOK_URL`) once per daily run until the token is renewed. Expiring: "Admin: the GitHub token that starts transcodes expires on `YYYY-MM-DD`. Renew it before uploads fail; see the README's token rotation steps." Invalid: "Admin: GitHub refused the token that starts transcodes, so uploads will fail. Renew it; see the README's token rotation steps."
