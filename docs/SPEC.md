@@ -28,7 +28,7 @@ Waffles is a private web app where four friends upload weekly phone videos to Cl
 | --- | --- |
 | Storage | Cloudflare R2, private bucket |
 | Hosting | Cloudflare Workers (app + API), D1 for metadata |
-| Playback format | H.264 High + AAC in MP4, SDR; original resolution, capped at 1080p when the copy would exceed 1.5× the original's size |
+| Playback format | H.264 + AAC in MP4, SDR (High profile when re-encoded); original resolution, capped at 1080p when the copy would exceed 1.5× the original's size |
 | Notification | Discord channel webhook (bot is a later option) |
 | Auth | Discord OAuth, limited to the friends' server |
 | Domain | `*.workers.dev` during prototype; `waffles.brownsymphony.app` after it is proven |
@@ -55,7 +55,7 @@ The phone uploads directly to R2 with presigned URLs. The Worker records metadat
 
 ## Video pipeline
 
-Every Waffle keeps its untouched original and gets one playback MP4 (H.264 High, AAC, SDR, original resolution and frame rate) that plays on iOS, Android, Windows, macOS and every current browser.
+Every Waffle keeps its untouched original and gets one playback MP4 (H.264, AAC, SDR, original resolution and frame rate) that plays on iOS, Android, Windows, macOS and every current browser.
 
 ### Upload
 
@@ -91,10 +91,10 @@ Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Wo
 Steps:
 
 1. Download the original from R2 with the S3 API.
-2. `ffprobe` it: codec, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
+2. `ffprobe` it: video and audio codecs, H.264 profile, pixel format, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
 3. Choose a path:
-   - Already H.264 + AAC, SDR, MP4 (common on Android): remux only, `-c copy -movflags +faststart`. No quality loss.
-   - Otherwise (HEVC `.mov` from iPhones, HDR, other codecs): re-encode with the settings below.
+   - An MP4 whose first video stream is H.264 with a `profile` of `Constrained Baseline`, `Main` or `High` and a `pix_fmt` of `yuv420p` (8-bit 4:2:0), whose first audio stream is AAC, and whose `color_transfer` is neither of the HDR values in **HDR is tone-mapped to SDR** below (common on Android): remux only, `-map 0:v:0 -map 0:a:0 -c copy -movflags +faststart`. The codec, `profile` and `pix_fmt` must match exactly, and a missing one re-encodes; a missing `color_transfer` counts as SDR. No quality loss.
+   - Everything else (HEVC `.mov` from iPhones, HDR, 10-bit or 4:2:2 H.264 such as High 10 or High 4:2:2, other video or audio codecs): re-encode with the settings below, since most phones cannot play those H.264 variants.
 4. Extract a poster frame at about 1 second as a JPEG (1280 px wide).
 5. Upload the playback MP4 and poster to R2.
 6. POST the result to the Worker's callback (see **Callback** below): `ready` with the playback results, or `failed` with the error text for any failure after the input check (see **Failure output** below).
