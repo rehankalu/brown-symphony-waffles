@@ -371,10 +371,11 @@ Two settings outside the repo make local sign-in and upload work: the Discord ap
 3. Add `https://waffles.brownsymphony.app/auth/callback` as a redirect URI in the Discord developer portal.
 4. Add the new origin to the `waffles` bucket's CORS rule.
 5. Set the `APP_ORIGIN` var to `https://waffles.brownsymphony.app` and redeploy, so sign-in redirects and Discord links use the new origin.
-6. Set the `CALLBACK_BASE_URL` repository secret to `https://waffles.brownsymphony.app`, or transcode callbacks keep going to the workers.dev origin. Keep the workers.dev route enabled until no Waffle is `processing`, because a run that started before the change still reports to it.
+6. Set the `CALLBACK_BASE_URL` repository secret to `https://waffles.brownsymphony.app`, or transcode callbacks keep going to the workers.dev origin. A run that started before the change still reports to the workers.dev origin, so step 9 waits for it.
 7. Remove the workers.dev `/auth/callback` redirect URI from the Discord developer portal, keeping the local one; sign-in stops using it once `APP_ORIGIN` changes.
-8. Members sign in again on the new origin, because session cookies belong to the origin that set them, and finish or cancel any unfinished upload on workers.dev first, because Resume reads part ETags from that origin's `localStorage`. Links to the workers.dev origin, such as those in earlier Discord posts, open only while that route stays enabled, and only for a member still signed in there; a sign-in started there fails, because its callback lands on the new origin.
-9. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
+8. Members sign in again on the new origin, because session cookies belong to the origin that set them, and finish or cancel any unfinished upload on workers.dev first, because Resume reads part ETags from that origin's `localStorage`. Links to the workers.dev origin, such as those in earlier Discord posts, stop working once step 9 disables that route; until then they open only for a member still signed in there, and a sign-in started there fails, because its callback lands on the new origin.
+9. Once no Waffle is `processing`, so no transcode run still reports to the workers.dev origin, and no member has an unfinished upload there, disable the Worker's workers.dev route and remove the workers.dev origin from the `waffles` bucket's CORS rule.
+10. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
 
 ## Build plan
 
