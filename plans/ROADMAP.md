@@ -32,8 +32,8 @@ Discord caps free uploads at 20 MB.
 The numbered capabilities define "done". Each is a user-observable outcome, never a
 component.
 
-1. **Upload a Waffle from a phone browser.** Up to about 2 GB and 15 minutes, without an app
-   install. *Acceptance:* Phase 2's exit criteria.
+1. **Upload a Waffle from a phone browser.** Up to 5 GiB (about 10 minutes of 4K60), without an
+   app install. *Acceptance:* Phase 2's exit criteria.
 2. **Keep the original and produce one playback copy.** H.264/AAC MP4 at the original
    resolution and frame rate, visually close to the source, capped at 1080p when that copy
    would exceed 1.5× the original's size. *Acceptance:* Phase 3's exit criteria.
