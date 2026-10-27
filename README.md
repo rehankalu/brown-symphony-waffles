@@ -29,8 +29,9 @@ The admin then:
    access tokens → Fine-grained tokens) with the repository access, permission and expiry
    SPEC Transcode names.
 2. Run `npx wrangler secret put GITHUB_DISPATCH_TOKEN` and paste the new token at the prompt.
-   This updates the deployed Worker (prototype and production are the same Worker); local dev
-   keeps its own copy in `.dev.vars`.
+   This updates the deployed Worker (prototype and production are the same Worker).
+   Then replace the token in `.dev.vars` too, since local dev keeps its own copy of it, and
+   get it to every other member with a local copy in person or through a password manager.
    Never paste it anywhere else: not in the repo, an issue, a workflow log or Discord.
 3. Tell members whose Waffles failed with "its access token may have expired" to press Retry.
 
@@ -40,6 +41,58 @@ If members see "The daily GitHub token check has failed for 3 days" on the This-
 or the channel gets that message, read the `token check` lines in the Worker's logs
 (Cloudflare dashboard → the Worker → Logs) and fix what they name; the banner goes at the next
 passing check (see [SPEC Transcode](docs/SPEC.md#transcode)).
+
+### Rotating the R2 keys
+
+`R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` come from the one R2 API token that the deployed
+Worker, the workflow and every `.dev.vars` share (see
+[SPEC Environments](docs/SPEC.md#environments)), so a leaked copy, including a laptop's
+`.dev.vars`, is a reason to rotate at once. A leaked `.dev.vars` also exposes the dispatch
+token (rotate it with the steps above), `DISCORD_CLIENT_SECRET` and `DISCORD_WEBHOOK_URL`:
+reset those in the Discord developer portal and the channel's webhook settings, then replace
+them with `npx wrangler secret put` and in every `.dev.vars`. The admin:
+
+1. In the Cloudflare dashboard (R2 → Manage API tokens), creates a new token with the
+   permission and buckets [SPEC Environments](docs/SPEC.md#environments) names.
+2. Runs `npx wrangler secret put R2_ACCESS_KEY_ID` and `npx wrangler secret put
+   R2_SECRET_ACCESS_KEY`, pasting the new values at the prompts.
+3. Replaces both repository secrets of the same names (GitHub → the repository → Settings →
+   Secrets and variables → Actions).
+4. Replaces both values in `.dev.vars`, and gets the new values to every other member with a
+   local copy in person or through a password manager, never through Discord.
+5. Once no Waffle is `processing`, deletes the old token. A run that started before step 3
+   still holds the old keys, so deleting it earlier fails that run's uploads. Deleting it also
+   ends every URL the Worker presigned with it: an upload in progress fails until the member
+   presses Resume or Try again, and an open video until the page is reloaded, since both then
+   get freshly signed URLs. If the old token leaked, delete it right after step 4 without
+   waiting, have the uploaders of any failed Waffles press Retry, and check the `waffles`
+   bucket's originals against D1 for anything deleted (R2 keeps no old versions).
+
+Never paste the keys anywhere else: not in the repo, an issue, a workflow log or Discord. The
+members' read-only NAS tokens (see [SPEC Follow-on: NAS backup](docs/SPEC.md#follow-on-nas-backup))
+are separate and are not affected.
+
+### Rotating the callback secret
+
+The production `TRANSCODE_CALLBACK_SECRET` lives in two places, the Worker's secrets and the
+repository secrets, and both must hold the same value. `.dev.vars` holds a separate dev-only
+value (see [SPEC Environments](docs/SPEC.md#environments)), which can be rotated on its own
+by replacing it there. To rotate the production value, the admin:
+
+1. Waits until no Waffle is `processing`, and asks members not to upload or press Retry until
+   step 4 is done. If the production secret leaked, skips the wait: anyone holding it can
+   forge a `ready` or `failed` callback.
+2. Generates a new random value, for example with `openssl rand -hex 32`.
+3. Runs `npx wrangler secret put TRANSCODE_CALLBACK_SECRET` and pastes it at the prompt.
+4. Right away, replaces the `TRANSCODE_CALLBACK_SECRET` repository secret (GitHub → the
+   repository → Settings → Secrets and variables → Actions) with the same value.
+
+A run reads the repository secret when it starts, so any run that started before step 4 and
+reports after step 3 signs with the old value and is rejected. Its Waffle ends `failed` under
+the **Stuck jobs** rule in [SPEC Transcode](docs/SPEC.md#transcode), and its uploader presses
+Retry.
+
+Never paste it anywhere else: not in the repo, an issue, a workflow log or Discord.
 
 ### Transcodes that did not report back
 
