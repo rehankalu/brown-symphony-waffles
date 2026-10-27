@@ -372,8 +372,9 @@ Two settings outside the repo make local sign-in and upload work: the Discord ap
 4. Add the new origin to the `waffles` bucket's CORS rule.
 5. Set the `APP_ORIGIN` var to `https://waffles.brownsymphony.app` and redeploy, so sign-in redirects and Discord links use the new origin.
 6. Set the `CALLBACK_BASE_URL` repository secret to `https://waffles.brownsymphony.app`, or transcode callbacks keep going to the workers.dev origin. Keep the workers.dev route enabled until no Waffle is `processing`, because a run that started before the change still reports to it.
-7. Point the webhook at the real Waffles channel.
-8. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
+7. Remove the workers.dev `/auth/callback` redirect URI from the Discord developer portal, keeping the local one; sign-in stops using it once `APP_ORIGIN` changes.
+8. Members sign in again on the new origin, because session cookies belong to the origin that set them, and finish or cancel any unfinished upload on workers.dev first, because Resume reads part ETags from that origin's `localStorage`. Links to the workers.dev origin, such as those in earlier Discord posts, open only while that route stays enabled, and only for a member still signed in there; a sign-in started there fails, because its callback lands on the new origin.
+9. `.app` domains only load over HTTPS; Cloudflare provides the certificate, so nothing else is needed.
 
 ## Build plan
 
