@@ -181,14 +181,21 @@ nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Wa
 `processing_at` is backdated past 150 minutes reads as `failed` with "transcode did not
 report back" from both GET routes, and a `ready` Waffle with the same `processing_at` stays
 `ready`. With fixture GitHub responses, the token expiry check posts one alert for a token
-expiring within 14 days and one for a 401, and posts nothing for a missing expiry header or a
-5xx. A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
-metacharacters (for example `$(id)`) fails before downloading anything, the validation script's
-output is only the fixed rejection message, and no callback arrives; a hand dispatch with
-`env=other` starts no run. The CI check fails on a branch that adds
-`${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds `set -ex`,
-and GitHub refuses to merge either branch into `main`. The validation script's tests from
-**Untrusted inputs** pass in CI.
+expiring within 14 days and one for a 401, and posts nothing for a missing expiry header, an
+unparseable one or a 5xx; the unparseable header and the 5xx each write their fixed
+`token check:` line to the Worker log, and a failed alert post writes its
+`token check alert failed:` line and adds 1 to the count. The first run creates the
+`token_check` row. Three consecutive failed runs leave `token_check.consecutive_failures` at 3
+and post one "failed for 3 days" message, a fourth failed run posts no second one, a failed
+"failed for 3 days" post writes its log line and is not retried, and a passing run resets the
+count to 0 (rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)). A
+hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
+metacharacters (for example `$(id)`) fails before downloading anything, the validation
+script's output is only the fixed rejection message, and no callback arrives; a hand dispatch
+with `env=other` starts no run. The CI check fails on a branch that adds
+`${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds
+`set -ex`, and GitHub refuses to merge either branch into `main`. The validation script's
+tests from **Untrusted inputs** pass in CI.
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
@@ -196,7 +203,8 @@ and GitHub refuses to merge either branch into `main`. The validation script's t
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week, Archive and Waffle screens and the player; delete and the Retry button.
+- This-week (with its token check banner), Archive and Waffle screens and the player; delete
+  and the Retry button.
 - The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
   works offline anyway, and a caching service worker risks a stale shell after a
   deploy and intercepted R2 range requests.
@@ -204,7 +212,9 @@ and GitHub refuses to merge either branch into `main`. The validation script's t
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row
 and all three R2 objects. Added to the home screen from Safari on iOS and Chrome on Android,
 the app opens standalone with its name and icon, and
-`navigator.serviceWorker.getRegistrations()` returns an empty list.
+`navigator.serviceWorker.getRegistrations()` returns an empty list. With
+`token_check.consecutive_failures` set to 3, every member's This-week screen shows the token
+check banner from [SPEC UI](../docs/SPEC.md#ui), and it is gone after a passing check.
 
 **Why here.** It needs ready playback copies and the read routes from Phase 3.
 

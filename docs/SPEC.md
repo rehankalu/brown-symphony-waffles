@@ -48,7 +48,7 @@ The phone uploads directly to R2 with presigned URLs. The Worker records metadat
 | --- | --- |
 | Phone browser (PWA) | Sign in, upload, browse, play, heatmap |
 | Cloudflare Worker (SvelteKit) | UI, API, OAuth, presigned URLs, webhook calls, daily token check |
-| D1 | Members, Waffles, sessions |
+| D1 | Members, Waffles, sessions, token check state |
 | R2 bucket `waffles` | Originals, playback MP4s, posters |
 | GitHub Actions | ffprobe and ffmpeg: remux or re-encode, poster frame |
 | Discord webhook | One message per ready Waffle, plus the admin's token expiry alert |
@@ -111,8 +111,11 @@ The job gives each callback request a 20-second timeout and signs every attempt 
 - A 401, 403 or 404 means the token is invalid or has lost access.
 - On a 2xx, the `github-authentication-token-expiration` response header gives the expiry as a UTC timestamp (for example `2026-11-01 00:00:00 UTC`). An expiry within 14 days counts as expiring. A missing header (a token with no expiry) never alerts; an unparseable one is treated like any other failure below.
 - An invalid or expiring token posts a fixed plain-text message, with no @mention, to the channel webhook (`DISCORD_WEBHOOK_URL`) once per daily run until the token is renewed. Expiring: "Admin: the GitHub token that starts transcodes expires on `YYYY-MM-DD`. Renew it before uploads fail; see the README's token rotation steps." Invalid: "Admin: GitHub refused the token that starts transcodes, so uploads will fail. Renew it; see the README's token rotation steps."
-- Any other status code, a network error or an unparseable header alerts nothing and is checked again the next day. The alert post makes one attempt, with no retry and nothing stored, so a failed post is simply repeated the next day. Like the dispatch, the check never stores or logs GitHub's response body or headers, or the webhook URL; only the expiry date appears in the message.
-- Accepted: a rare rate-limit 403 raises a false "refused" alert that the next day's check clears, and a dead webhook silences the alert until a member reports a failed upload.
+- Any other status code, a network error or an unparseable header alerts nothing and is checked again the next day. The alert post makes one attempt, with no retry, so a failed post is repeated the next day.
+- A failed run writes one fixed line to the Worker log: `token check: <status code, network or unparseable>` when GitHub's answer alerts nothing, and `token check alert failed: <status code or network>` for each post that fails. A passing run writes no line. The Wrangler config turns on Workers Logs (`[observability] enabled = true`), so these lines are kept for the admin to read after the run. Like the dispatch, the check never stores or logs GitHub's or Discord's response body or headers, or the webhook URL; only the expiry date appears in the message.
+- **Failure count.** Each run records its result in the single-row `token_check` table (see [Data model](#data-model)) with one atomic upsert of row 1 (`INSERT … ON CONFLICT(id) DO UPDATE … RETURNING consecutive_failures`), so the first run creates the row. A run *passes* when GitHub answered 2xx with a missing or parseable expiry header, or 401, 403 or 404, and any expiring or invalid alert it owed was posted; it sets `consecutive_failures` to 0. A delivered alert counts as a pass on purpose: the admin already hears about an expiring or invalid token from that alert, so the count tracks only a check or alert path that has gone quiet. Any other run (another status code, `network`, `unparseable`, or a failed alert post) adds 1. Every run also sets `last_checked_at` and `last_alert`: the result of the last post it made (`sent`, the status code or `network`), or NULL when it made none.
+- **Three failed days.** When the upsert returns exactly 3, that run posts one fixed message to the same webhook, with one attempt and no retry: "Admin: the daily GitHub token check has failed for 3 days. Check the Worker log for `token check` lines." Later failed runs do not post it again, and its own failure only writes the `token check alert failed:` line. While `consecutive_failures` is 3 or more, the This-week screen shows every member a banner (see [UI](#ui)), because that Discord post never arrives when the webhook itself is what failed. The next passing run clears the banner.
+- Accepted: a rare rate-limit 403 raises a false "refused" alert that the next day's check clears.
 
 Re-encode settings, the starting point to tune in Phase 3:
 
@@ -144,7 +147,7 @@ Playback uses presigned GET URLs from the Worker with a 6-hour expiry. R2 suppor
 
 ## Data model
 
-Three D1 tables hold everything; the heatmap is a query over `waffles`, not stored data.
+Four D1 tables hold everything; the heatmap is a query over `waffles`, not stored data.
 
 ```sql
 CREATE TABLE members (
@@ -190,7 +193,16 @@ CREATE TABLE sessions (
   member_id   TEXT NOT NULL REFERENCES members(discord_id),
   expires_at  TEXT NOT NULL
 );
+
+CREATE TABLE token_check (               -- one row, written by the daily token expiry check
+  id                    INTEGER PRIMARY KEY CHECK (id = 1),
+  consecutive_failures  INTEGER NOT NULL DEFAULT 0,
+  last_checked_at       TEXT NOT NULL,   -- UTC ISO-8601
+  last_alert            TEXT             -- the run's last post: sent | status code | network; NULL when it made none
+);
 ```
+
+The token expiry check upserts row 1 on every run (see [Transcode](#transcode)); until its first run there is no row and no banner.
 
 ### Waffle week
 
@@ -234,7 +246,7 @@ Only the uploader may abort, delete, retry or re-post their own Waffle. Any memb
 
 ### Discord notification
 
-- A channel webhook (URL kept as a Worker secret) posts once, when a Waffle reaches `ready`, never at upload start. The same webhook also carries the admin's alert from the [token expiry check](#transcode); the rules below cover Waffle posts only.
+- A channel webhook (URL kept as a Worker secret) posts once, when a Waffle reaches `ready`, never at upload start. The same webhook also carries the admin's alerts from the [token expiry check](#transcode); the rules below cover Waffle posts only.
 - Message: "🧇 **Alex** posted a Waffle for the week of Oct 14 · 6:42" plus the caption and the app link `/w/{id}`. Post with `?wait=true` so Discord returns the message, and store its ID in `discord_message_id`.
 - Post only when `discord_message_id IS NULL`, and claim the post first with one guarded statement (`UPDATE … SET discord_posting_at = now WHERE status = 'ready' AND discord_message_id IS NULL AND (discord_posting_at IS NULL OR discord_posting_at < now − 2 min)`); only the request that changed the row posts. So a duplicate callback or a second tap on "Post to Discord again" can't post twice, and a claim left by a Worker that died mid-post expires after 2 minutes. The post's result clears `discord_posting_at`.
 - The callback posts after it responds (`ctx.waitUntil`), so a slow Discord never delays the GitHub job.
@@ -251,11 +263,15 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 
 | Screen | Path | Contents |
 | --- | --- | --- |
-| This week | `/` | Who has posted this Waffle week (4 avatars, filled or empty), the latest Waffles, a large Upload button |
+| This week | `/` | Who has posted this Waffle week (4 avatars, filled or empty), the latest Waffles, a large Upload button; the token check banner when it is due |
 | Upload | `/upload` | File picker (`accept="video/*"`), caption, week selector (this week / last week), progress bar with MB sent and time left |
 | Waffle | `/w/:id` | Player, member, week, caption, duration; Download original; Delete and Retry for the owner, and Post to Discord again while it has no Discord message |
 | Archive | `/archive` | Grid of poster cards grouped by week, newest first; filter by member and year |
 | Participation | `/participation` | The heatmap for a selected year |
+
+**Token check banner**
+
+- When the token expiry check calls for it (the rule is in [Transcode](#transcode)), the This-week screen shows every member a fixed banner above its contents: "The daily GitHub token check has failed for 3 days; tell the admin." The page's server load reads the `token_check` row, and the banner has no dismiss.
 
 **Upload screen behaviour**
 

@@ -35,3 +35,8 @@ The admin then:
 3. Tell members whose Waffles failed with "its access token may have expired" to press Retry.
 
 The next daily check stays quiet once the new token is in place.
+
+If members see "The daily GitHub token check has failed for 3 days" on the This-week screen,
+or the channel gets that message, read the `token check` lines in the Worker's logs
+(Cloudflare dashboard → the Worker → Logs) and fix what they name; the banner goes at the next
+passing check (see [SPEC Transcode](docs/SPEC.md#transcode)).
