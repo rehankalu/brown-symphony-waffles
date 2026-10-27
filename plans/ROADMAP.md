@@ -115,11 +115,14 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
 **Goal.** Stand up the empty app and every Cloudflare resource the later phases build on.
 **Advances capabilities:** none directly (foundation for all).
 
-- Repo and a SvelteKit app deployed to `workers.dev`.
+- Repo and a SvelteKit app deployed to `workers.dev`, served through the custom Worker entry
+  (`src/worker.ts`, passing `fetch` through to the adapter), the Wrangler config's `main` and
+  its `[build] command`, as in **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
 - D1 database with the schema and migrations.
 - R2 buckets with CORS and the lifecycle rule; secrets set.
 
-**Exit criteria.** The deployed app returns a page, and `db:migrate` runs locally and remotely.
+**Exit criteria.** The deployed app returns a page through the custom Worker entry, and
+`db:migrate` runs locally and remotely.
 
 **Why here.** Every later phase deploys to this Worker and reads this schema and these buckets.
 
@@ -159,8 +162,8 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   [SPEC Transcode](../docs/SPEC.md#transcode).
   *Why:* `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
   token change code the workflow runs and expose its secrets, the R2 keys among them.
-- The custom Worker entry that adds the token expiry check's `scheduled` handler, and its
-  build step, as in **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
+- The token expiry check's `scheduled` handler, added to Phase 0's custom Worker entry as in
+  **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
 - The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
   its button.
 - `GET /api/waffles` and `GET /api/waffles/:id` as in
