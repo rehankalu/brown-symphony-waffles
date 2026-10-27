@@ -180,24 +180,35 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
 from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
 Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip over the
-threshold comes out at 1080p. With an invalid dispatch token, a completed upload ends
-`failed` with the token message from **Rejected dispatch** in
-[SPEC Transcode](../docs/SPEC.md#transcode), the token appears in no stored error, API
-response or Worker log, and the original stays in R2. After a rejected dispatch, another
+threshold comes out at 1080p. An H.264 SDR clip with no audio stream takes the remux path
+and its playback copy has no audio track, and an Android clip that ffprobe reports as
+`yuvj420p` takes the remux path and its playback copy keeps the original's `pix_fmt` and
+`color_range` (rule: the remux path in [SPEC Transcode](../docs/SPEC.md#transcode)). A
+corrupt file ends `failed` with `probe:` or `encode:` and the first non-empty line of the
+tool's stderr as its stored error, while the run's log shows only the fixed line naming the
+Waffle ID and category (rule: **Failure output** in
+[SPEC Transcode](../docs/SPEC.md#transcode)). The no-audio and corrupt clips are made with
+ffmpeg (for example with `-an`, and by truncating a file), and no test clip is committed.
+With an invalid dispatch token, a completed upload ends `failed` with the token message from
+**Rejected dispatch** in [SPEC Transcode](../docs/SPEC.md#transcode), the token appears in
+no stored error, API response or Worker log, and the original stays in R2. After a rejected dispatch, another
 member's Retry is refused while the Waffle is still `failed`, leaving it `failed` with
 nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Waffle whose
 `processing_at` is backdated past 150 minutes reads as `failed` with the **Stuck jobs**
 message from [SPEC Transcode](../docs/SPEC.md#transcode) in both GET routes, and a `ready`
 Waffle with the same `processing_at` stays `ready`.
 With fixture GitHub responses, the token expiry check posts one alert for a token
-expiring within 14 days and one for a 401, and posts nothing for a missing expiry header, an
-unparseable one or a 5xx; the unparseable header and the 5xx each write their fixed
-`token check:` line to the Worker log, and a failed alert post writes its
-`token check alert failed:` line and adds 1 to the count. The first run creates the
+expiring 13 days after the run and one each for a 401, a 403 and a 404, and posts nothing
+for a token expiring 15 days after the run, one expiring in a far-future year such as 2099,
+a missing expiry header, an unparseable one, a 5xx or a network error; the unparseable
+header, the 5xx and the network error each write their fixed `token check:` line to the
+Worker log, and a failed alert post writes its `token check alert failed:` line and adds 1
+to the count. The first run creates the
 `token_check` row. Three consecutive failed runs leave `token_check.consecutive_failures` at 3
 and post one "failed for 3 days" message, a fourth failed run posts no second one, a failed
 "failed for 3 days" post writes its log line and is not retried, and a passing run resets the
-count to 0 (rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+count to 0. No `token check` line or alert holds the token, the webhook URL or a fixture
+response body (rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the check through the
 `scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture)
 and updates the `token_check` row, while the same Worker still serves a page and an `/api`
@@ -205,7 +216,14 @@ route. A
 hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
 metacharacters (for example `$(id)`) fails before downloading anything, the validation
 script's output is only the fixed rejection message, and no callback arrives; a hand dispatch
-with `env=other` starts no run. The CI check fails on a branch that adds
+with `env=other` starts no run. A hand dispatch with `env=dev` and the ID of a Waffle
+uploaded under `wrangler dev` writes its playback copy to `waffles-dev` and sends no
+callback. While no Waffle is `processing`, with the `CALLBACK_BASE_URL` secret deleted (so
+it expands empty), and then set to an `http://` URL, a hand dispatch with `env=prod` and a
+well-formed ULID that matches no Waffle fails before downloading anything, its log shows
+only the fixed message, and no callback arrives; the secret is then set back to its
+`https://` value and one upload's callback arrives (rule: **Dispatch target** in
+[SPEC Transcode](../docs/SPEC.md#transcode)). The CI check fails on a branch that adds
 `${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds
 `set -ex`, and GitHub refuses to merge either branch into `main`. The validation script's
 tests from **Untrusted inputs** pass in CI.
@@ -242,7 +260,9 @@ only and does not fill their avatar; Resume on the same phone finishes it, and C
 
 **Exit criteria.** One message appears per ready Waffle, in a test channel first, with a
 working link, and the message is deleted with the Waffle. A revoked webhook leaves the
-Waffle `ready` with Post to Discord again, and a duplicate callback posts once.
+Waffle `ready` with Post to Discord again; once `DISCORD_WEBHOOK_URL` holds a working
+webhook again, Post to Discord again posts one message and clears `discord_error`. A
+duplicate callback posts once.
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
 
@@ -258,9 +278,11 @@ two Waffles from one member, a Waffle filed to the previous week, and Waffles at
 week (seeds get `week_start` from `uploaded_at` through the Waffle-week function). A member
 who has not yet posted in the current week keeps their streak, posting in it adds one, a
 past week with no Waffle from them breaks it, a run spanning the last week of one year and
-the first week of the next counts as one streak, and a past year shows "Best YYYY streak"
-instead of the current streak (rules: SPEC [Waffle week](../docs/SPEC.md#waffle-week) and
-[UI](../docs/SPEC.md#ui)).
+the first week of the next counts as one streak, a run from December into February counts
+its December weeks toward the Best streak of the year it ends in, a 53-week year such as
+2025 shows 53 columns and a run through its 53rd week carries into 2026's first week, and a
+past year shows "Best YYYY streak" instead of the current streak (rules: SPEC
+[Waffle week](../docs/SPEC.md#waffle-week) and [UI](../docs/SPEC.md#ui)).
 
 **Why here.** It is a read-only view over Waffles the earlier phases create.
 
