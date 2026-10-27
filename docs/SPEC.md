@@ -28,7 +28,7 @@ Waffles is a private web app where four friends upload weekly phone videos to Cl
 | --- | --- |
 | Storage | Cloudflare R2, private bucket |
 | Hosting | Cloudflare Workers (app + API), D1 for metadata |
-| Playback format | H.264 + AAC in MP4, SDR (High profile when re-encoded); original resolution, capped at 1080p when the copy would exceed 1.5× the original's size |
+| Playback format | H.264 + AAC in MP4 (video only when the source has no audio), SDR (High profile when re-encoded); original resolution, capped at 1080p when the copy would exceed 1.5× the original's size |
 | Notification | Discord channel webhook (bot is a later option) |
 | Auth | Discord OAuth, limited to the friends' server |
 | Domain | `*.workers.dev` during prototype; `waffles.brownsymphony.app` after it is proven |
@@ -91,9 +91,9 @@ Runs as a GitHub Actions workflow, started by a `workflow_dispatch` event the Wo
 Steps:
 
 1. Download the original from R2 with the S3 API.
-2. `ffprobe` it: video and audio codecs, H.264 profile, pixel format, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
+2. `ffprobe` it: video codec, audio codec (if there is an audio stream), H.264 profile, pixel format, resolution, frame rate, rotation, duration, colour transfer, `creation_time`.
 3. Choose a path:
-   - An MP4 whose first video stream is H.264 with a `profile` of `Constrained Baseline`, `Main` or `High` and a `pix_fmt` of `yuv420p` (8-bit 4:2:0), whose first audio stream is AAC, and whose `color_transfer` is neither of the HDR values in **HDR is tone-mapped to SDR** below (common on Android): remux only, `-map 0:v:0 -map 0:a:0 -c copy -movflags +faststart`. The codec, `profile` and `pix_fmt` must match exactly, and a missing one re-encodes; a missing `color_transfer` counts as SDR. No quality loss.
+   - A source whose first video stream is H.264 with a `profile` of `Constrained Baseline`, `Main` or `High` and a `pix_fmt` of `yuv420p` or `yuvj420p` (8-bit 4:2:0; `yuvj420p` is the full-range form many Android cameras record), that has no audio stream or whose first audio stream is AAC, and whose `color_transfer` is neither of the HDR values in **HDR is tone-mapped to SDR** below (common on Android): remux only, `-map 0:v:0 -map '0:a:0?' -c copy -movflags +faststart` (the `?` makes the audio map optional). The video codec, `profile` and `pix_fmt` must match exactly, and a missing one re-encodes; an audio stream whose codec is missing or not AAC re-encodes; a missing `color_transfer` counts as SDR. The container is not checked: ffprobe reports `.mov`, `.mp4` and `.m4v` as the same format, and `-c copy` rewraps their H.264 and AAC into `playback.mp4` unchanged. Stream copy keeps the H.264 stream's range flag, so a full-range source plays with the right levels. No quality loss.
    - Everything else (HEVC `.mov` from iPhones, HDR, 10-bit or 4:2:2 H.264 such as High 10 or High 4:2:2, other video or audio codecs): re-encode with the settings below, since most phones cannot play those H.264 variants.
 4. Extract a poster frame at about 1 second as a JPEG (1280 px wide).
 5. Upload the playback MP4 and poster to R2.
@@ -135,6 +135,7 @@ Re-encode settings, the starting point to tune in Phase 3:
 
 ```bash
 ffmpeg -hide_banner -nostdin -nostats -loglevel error -i original \
+  -map 0:v:0 -map '0:a:0?' \
   -c:v libx264 -preset slow -crf 18 -profile:v high -pix_fmt yuv420p \
   -fps_mode passthrough \
   -c:a aac -b:a 192k \
