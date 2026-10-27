@@ -138,7 +138,9 @@ server cannot.
 
 **Goal.** A member gets a full-size Waffle from their phone into R2 intact. **Advances capabilities:** 1.
 
-- Multipart upload to R2 with presigned parts, progress, retry, resume, abort.
+- Multipart upload to R2 with presigned parts, progress, retry, resume, abort, the
+  failed-upload messages and the abandoned-upload sweep, as in
+  [SPEC Upload](../docs/SPEC.md#upload).
 
 **Exit criteria.** Each member uploads a real 10-minute Waffle from their own phone on mobile
 data and Wi-Fi, and the object in R2 is byte-identical to the original (size and SHA-256).
@@ -204,8 +206,8 @@ tests from **Untrusted inputs** pass in CI.
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week (with its token check banner), Archive and Waffle screens and the player; delete
-  and the Retry button.
+- This-week (with its token check banner and Unfinished uploads), Archive and Waffle
+  screens and the player; delete and the Retry button.
 - The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
   works offline anyway, and a caching service worker risks a stale shell after a
   deploy and intercepted R2 range requests.
@@ -216,6 +218,8 @@ the app opens standalone with its name and icon, and
 `navigator.serviceWorker.getRegistrations()` returns an empty list. With
 `token_check.consecutive_failures` set to 3, every member's This-week screen shows the token
 check banner from [SPEC UI](../docs/SPEC.md#ui), and it is gone after a passing check.
+An upload stopped mid-way shows under Unfinished uploads on its owner's This-week screen
+only; Resume on the same phone finishes it, and Cancel upload removes it.
 
 **Why here.** It needs ready playback copies and the read routes from Phase 3.
 
