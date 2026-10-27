@@ -219,7 +219,7 @@ the app opens standalone with its name and icon, and
 `token_check.consecutive_failures` set to 3, every member's This-week screen shows the token
 check banner from [SPEC UI](../docs/SPEC.md#ui), and it is gone after a passing check.
 An upload stopped mid-way shows under Unfinished uploads on its owner's This-week screen
-only; Resume on the same phone finishes it, and Cancel upload removes it.
+only and does not fill their avatar; Resume on the same phone finishes it, and Cancel upload removes it.
 
 **Why here.** It needs ready playback copies and the read routes from Phase 3.
 
