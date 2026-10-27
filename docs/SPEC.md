@@ -322,7 +322,7 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 - The current week is outlined; future weeks are blank and not clickable.
 - Hover or tap shows the week and who posted; clicking a filled cell opens that Waffle (or the week in the archive if there are several).
 - Below the grid: each member's count for the year and a streak. A streak is a run of consecutive weeks with a Waffle from them, and it carries across calendar years: a week in late December and the next week in early January continue one run.
-  - Current year: **Current streak**, the run counting back from last week, plus the current week once they have posted in it.
+  - Current year (the heatmap year that holds the current Waffle week; see [Waffle week](#waffle-week)): **Current streak**, the run counting back from last week, plus the current week once they have posted in it.
   - Past year: **Best YYYY streak** (for example "Best 2025 streak") replaces it: the longest run they reached in any week of that year, counting the weeks a run carried in from earlier years.
 - Built as a plain CSS grid from `/api/heatmap`; no chart library needed.
 
