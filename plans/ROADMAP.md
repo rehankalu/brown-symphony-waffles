@@ -156,7 +156,8 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 
 - GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
-  the 1.5× cap threshold from them.
+  the 1.5× cap threshold from them. Merge each tuning change to `main` before dispatching it
+  (rule: **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 - The Worker starts the workflow with `workflow_dispatch`, which needs only Actions: write;
   the dispatch token, the daily token expiry check and rejected dispatches are as in
   [SPEC Transcode](../docs/SPEC.md#transcode).
