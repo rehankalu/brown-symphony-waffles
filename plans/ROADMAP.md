@@ -228,7 +228,7 @@ tests from **Untrusted inputs** pass in CI.
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week (with its token check banner and Unfinished uploads), Archive and Waffle
+- This-week (with its token expiry check banner and Unfinished uploads), Archive and Waffle
   screens and the player; delete and the Retry button.
 - The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
   works offline anyway, and a caching service worker risks a stale shell after a
@@ -239,7 +239,7 @@ and all three R2 objects. Added to the home screen from Safari on iOS and Chrome
 the app opens standalone with its name and icon, and
 `navigator.serviceWorker.getRegistrations()` returns an empty list. With
 `token_check.consecutive_failures` set to 3, every member's This-week screen shows the token
-check banner from [SPEC UI](../docs/SPEC.md#ui), and it is gone after a passing check.
+expiry check banner from [SPEC UI](../docs/SPEC.md#ui), and it is gone after a passing check.
 An upload stopped mid-way shows under Unfinished uploads on its owner's This-week screen
 only and does not fill their avatar; Resume on the same phone finishes it, and Cancel upload removes it.
 

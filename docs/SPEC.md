@@ -30,8 +30,8 @@ The phone uploads directly to R2 with presigned URLs. The Worker records metadat
 | Component | Role |
 | --- | --- |
 | Phone browser (PWA) | Sign in, upload, browse, play, heatmap |
-| Cloudflare Worker (SvelteKit) | UI, API, OAuth, presigned URLs, webhook calls, daily token check |
-| D1 | Members, Waffles, sessions, token check state |
+| Cloudflare Worker (SvelteKit) | UI, API, OAuth, presigned URLs, webhook calls, daily token expiry check |
+| D1 | Members, Waffles, sessions, token expiry check state |
 | R2 bucket `waffles` | Originals, playback MP4s, posters |
 | GitHub Actions | ffprobe and ffmpeg: remux or re-encode, poster frame |
 | Discord webhook | One message per ready Waffle, plus the admin's token expiry alert |
@@ -275,13 +275,13 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 
 | Screen | Path | Contents |
 | --- | --- | --- |
-| This week | `/` | Who has posted this Waffle week (4 avatars, filled or empty), the latest Waffles, a large Upload button; the token check banner when it is due; the member's own Unfinished uploads |
+| This week | `/` | Who has posted this Waffle week (4 avatars, filled or empty), the latest Waffles, a large Upload button; the token expiry check banner when it is due; the member's own Unfinished uploads |
 | Upload | `/upload` | File picker (`accept="video/*"`), caption, week selector (this week / last week), progress bar with MB sent and time left |
 | Waffle | `/w/:id` | Player, member, week, caption, duration; Download original; Delete and Retry for the owner, and Post to Discord again while it has no Discord message |
 | Archive | `/archive` | Grid of poster cards grouped by week, newest first; filter by member and year |
 | Participation | `/participation` | The heatmap for a selected year |
 
-**Token check banner**
+**Token expiry check banner**
 
 - When the token expiry check calls for it (the rule is in [Transcode](#transcode)), the This-week screen shows every member a fixed banner above its contents: "The daily GitHub token check has failed for 3 days; tell the admin." The page's server load reads the `token_check` row, and the banner has no dismiss.
 

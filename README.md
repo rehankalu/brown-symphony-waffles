@@ -21,7 +21,7 @@ _Not set up yet._
 
 ### Rotating the GitHub dispatch token
 
-`GITHUB_DISPATCH_TOKEN` expires. The Worker's daily token check warns in the Discord channel
+`GITHUB_DISPATCH_TOKEN` expires. The Worker's daily token expiry check warns in the Discord channel
 before it does, or once GitHub refuses it (see [SPEC Transcode](docs/SPEC.md#transcode)).
 The admin then:
 
@@ -35,7 +35,7 @@ The admin then:
    Never paste it anywhere else: not in the repo, an issue, a workflow log or Discord.
 3. Tell members whose Waffles failed with "its access token may have expired" to press Retry.
 
-The next daily check stays quiet once the new token is in place.
+The next token expiry check stays quiet once the new token is in place.
 
 If members see "The daily GitHub token check has failed for 3 days" on the This-week screen,
 or the channel gets that message, read the `token check` lines in the Worker's logs

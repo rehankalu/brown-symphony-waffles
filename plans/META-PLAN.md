@@ -32,7 +32,7 @@ is the backup). Add those rows (prose instructions, followed as written); `PR li
 
 | Fact | Value |
 |---|---|
-| Verification | `npm test` |
+| Verification | pending — set by the first feature with tests |
 | PR link form | `[#N](https://github.com/rehankalu/brown-symphony-waffles/pull/N)` |
 | Merge strategy | `squash` |
 | Worktree prefix | `none` |

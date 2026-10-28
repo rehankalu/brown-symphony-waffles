@@ -10,7 +10,7 @@ parsing) come from ~/.claude/CLAUDE.md and are not repeated here. -->
 
 | Question | Document |
 |---|---|
-| How do I run and test it? | `README.md` |
+| How do I run, test and operate it? | `README.md` |
 | What rules must an agent follow here? | this file |
 | Where is the project going, and why in this order? | `plans/ROADMAP.md` |
 | What is the next feature, and what does the code look like now? | `plans/META-PLAN.md` |
