@@ -113,7 +113,10 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
   (`src/worker.ts`, passing `fetch` through to the adapter), the Wrangler config's `main` and
   its `[build] command`, as in **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
 - D1 database with the schema and migrations.
-- R2 buckets with CORS and the lifecycle rule; secrets set.
+- R2 buckets with CORS and the lifecycle rule, and the R2 API token, with the Worker secrets
+  `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` from it and `R2_ACCOUNT_ID` (see
+  [SPEC Environments](../docs/SPEC.md#environments)). Each later phase sets the secrets it
+  first needs, in the Worker and in `.dev.vars` as that section describes.
 
 **Exit criteria.** The deployed app returns a page through the custom Worker entry, and
 `db:migrate` runs locally and remotely.
@@ -125,6 +128,8 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
 **Goal.** Only the four members can get in. **Advances capabilities:** 6.
 
 - Discord OAuth, guild and `members` checks, sessions, the four members seeded.
+- The Discord application, with the Worker secrets `DISCORD_CLIENT_ID`,
+  `DISCORD_CLIENT_SECRET` and `DISCORD_GUILD_ID`.
 
 **Exit criteria.** All four can sign in from their phones, and a Discord account outside the
 server cannot.
@@ -138,6 +143,10 @@ server cannot.
 - Multipart upload to R2 with presigned parts, progress, retry, resume, abort, the
   failed-upload messages and the abandoned-upload sweep, as in
   [SPEC Upload](../docs/SPEC.md#upload).
+- `complete` stops at `processing`: it sets `status` and `processing_at` and dispatches
+  nothing until Phase 3 adds the dispatch, and its dispatch tests land there. Once Phase 3
+  deploys, Phase 2's Waffles turn `failed` under **Stuck jobs** in
+  [SPEC Transcode](../docs/SPEC.md#transcode), and each owner's Retry recovers them.
 
 **Exit criteria.** Each member uploads a real 10-minute Waffle from their own phone on mobile
 data and Wi-Fi, and the object in R2 is byte-identical to the original (size and SHA-256).
@@ -149,16 +158,25 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 **Goal.** Every uploaded Waffle gets a playback copy every device can play. **Advances capabilities:** 2.
 
 - GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
+- The fine-grained PAT, created as in [SPEC Transcode](../docs/SPEC.md#transcode); the
+  Worker secrets `GITHUB_DISPATCH_TOKEN`, `TRANSCODE_CALLBACK_SECRET` and
+  `DISCORD_WEBHOOK_URL` (the test channel's webhook); and the repository secrets the
+  workflow needs, as listed in [SPEC Environments](../docs/SPEC.md#environments).
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
   the 1.5× cap threshold from them. Merge each tuning change to `main` before dispatching it
   (rule: **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).
-- The Worker starts the workflow with `workflow_dispatch`; the dispatch token, the daily
-  token expiry check and rejected dispatches are as in [SPEC Transcode](../docs/SPEC.md#transcode).
+- `complete` and Retry start the workflow with `workflow_dispatch`; the dispatch token, the
+  daily token expiry check and rejected dispatches are as in
+  [SPEC Transcode](../docs/SPEC.md#transcode).
   *Why `workflow_dispatch`:* it needs only the Actions: write permission SPEC names, while
   `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
   token change code the workflow runs and expose its secrets, the R2 keys among them.
 - The token expiry check's `scheduled` handler, added to Phase 0's custom Worker entry as in
   **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
+- A minimal webhook poster for the token alerts, ahead of Phase 5: one post to
+  `DISCORD_WEBHOOK_URL` with the `allowed_mentions` rule from
+  [SPEC Discord notification](../docs/SPEC.md#discord-notification). Phase 5 builds the
+  Waffle posts on it.
 - The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
   its button.
 - `GET /api/waffles` and `GET /api/waffles/:id` as in
@@ -253,7 +271,8 @@ only and does not fill their avatar; Resume on the same phone finishes it, and C
 
 **Goal.** The group hears about each Waffle where they already talk. **Advances capabilities:** 3.
 
-- Webhook on `ready`, message deleted with the Waffle, and failed posts handled as in
+- Webhook on `ready`, built on Phase 3's webhook poster, message deleted with the Waffle,
+  and failed posts handled as in
   [SPEC Discord notification](../docs/SPEC.md#discord-notification).
 
 **Exit criteria.** One message appears per ready Waffle, in a test channel first, with a
