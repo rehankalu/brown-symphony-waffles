@@ -116,8 +116,11 @@ tab, and a rejected callback also in the Worker log. So the admin:
    runner clock more than 5 minutes off; `callback rejected: 401` lines in the Worker log
    support it, though any unsigned request writes them too. `callback: retries exhausted ...`
    means the Worker was unreachable or kept failing, so check `CALLBACK_BASE_URL` and the
-   Worker log. `callback: 404 <id>` for a deleted Waffle is the Worker's `no_waffle` 404, after
-   which the run deleted its playback copy and poster. For a Waffle that still exists it is a
+   Worker log; `callback rejected: no secret` there means the Worker's
+   `TRANSCODE_CALLBACK_SECRET` is unset or blank (fix: step 3 of [Rotating the callback
+   secret](#rotating-the-callback-secret), with the repository secret's value).
+   `callback: 404 <id>` for a deleted Waffle is the Worker's `no_waffle` 404, after which the
+   run deleted its playback copy and poster. For a Waffle that still exists it is a
    404 without that marker, so `CALLBACK_BASE_URL` points at the wrong Worker or host, and the
    run deleted nothing. If no run names that ID, the run never started; check [GitHub
    Status](https://www.githubstatus.com) for Actions. The uploader then presses Retry.

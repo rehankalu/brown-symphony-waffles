@@ -269,10 +269,12 @@ callback. While no Waffle is `processing`, with the `CALLBACK_BASE_URL` secret d
 it expands empty), and then set to an `http://` URL, a hand dispatch with `env=prod` and a
 well-formed ULID that matches no Waffle fails before downloading anything, its log shows
 only the fixed message, and no callback arrives; the secret is then set back to its
-`https://` value and one upload's callback arrives (rule: **Dispatch target** in
-[SPEC Transcode](../docs/SPEC.md#transcode)). With the `TRANSCODE_CALLBACK_SECRET`
-repository secret set to a wrong value, an upload's run log ends with
-`callback: 401 <waffle id>`, the Worker log shows `callback rejected: 401` with no Waffle ID,
+`https://` value and one upload's callback arrives. With the `TRANSCODE_CALLBACK_SECRET`
+repository secret deleted, the same hand dispatch also fails before downloading anything
+with only the fixed message and sends no callback; the secret is then set back (rule:
+**Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)). With the
+`TRANSCODE_CALLBACK_SECRET` repository secret set to a wrong value, an upload's run log ends
+with `callback: 401 <waffle id>`, the Worker log shows `callback rejected: 401` with no Waffle ID,
 and the Waffle stays `processing`; the secret is then set back (rule: **Callback** in
 [SPEC Transcode](../docs/SPEC.md#transcode)). The admin finds that run by its Waffle ID with
 README [Transcodes that did not report back](../README.md#transcodes-that-did-not-report-back).
