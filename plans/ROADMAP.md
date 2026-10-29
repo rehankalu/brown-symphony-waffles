@@ -116,8 +116,8 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
 - D1 database with the schema and migrations.
 - R2 buckets with CORS and the lifecycle rule, and the R2 API token, with the Worker secrets
   `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` from it and `R2_ACCOUNT_ID` (see
-  [SPEC Environments](../docs/SPEC.md#environments)). Each later phase sets the secrets it
-  first needs, in the Worker and in `.dev.vars` as that section describes.
+  [SPEC Environments](../docs/SPEC.md#environments)). Each later phase sets the secrets and
+  `[vars]` it first needs, in the Worker and in `.dev.vars` as that section describes.
 
 **Exit criteria.** The deployed app returns a page through the custom Worker entry, and
 `db:migrate` runs locally and remotely. Read back from R2 (dashboard or Wrangler), each
@@ -138,6 +138,8 @@ and its lifecycle rule aborts multipart uploads left incomplete for 7 days
   hook that every later POST and DELETE route passes through.
 - The Discord application, with the Worker secrets `DISCORD_CLIENT_ID`,
   `DISCORD_CLIENT_SECRET` and `DISCORD_GUILD_ID`.
+- The `APP_ORIGIN` var and both Discord redirect URIs, as in
+  [SPEC Environments](../docs/SPEC.md#environments).
 
 **Exit criteria.** All four can sign in from their phones, and a Discord account outside the
 server cannot. A `POST /auth/logout` with a valid session cookie and an `Origin` of another
@@ -153,6 +155,9 @@ follow with the phase that builds it (Phases 2 to 5).
 - Multipart upload to R2 with presigned parts, progress, retry, resume, abort, the
   failed-upload messages and the abandoned-upload sweep, as in
   [SPEC Upload](../docs/SPEC.md#upload).
+- The `TRANSCODE_ENV` and `GROUP_TZ` vars, as in
+  [SPEC Environments](../docs/SPEC.md#environments): the Worker's first R2 calls need
+  `TRANSCODE_ENV`, and `week_start` first needs `GROUP_TZ`.
 - `GET /api/waffles` and `GET /api/waffles/:id` as in
   [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), without the lazy
   check from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), which Phase 3
@@ -191,9 +196,9 @@ sweep, `uploading` Waffles, the Upload screen's polling (its 404 and 401 include
 - GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
 - The fine-grained PAT, created as in [SPEC Transcode](../docs/SPEC.md#transcode); the
   Worker secrets `GITHUB_DISPATCH_TOKEN`, `TRANSCODE_CALLBACK_SECRET` and
-  `DISCORD_WEBHOOK_URL` (the test channel's webhook); and the repository secrets the
-  workflow needs, `R2_ACCOUNT_ID` among them, as listed in
-  [SPEC Environments](../docs/SPEC.md#environments).
+  `DISCORD_WEBHOOK_URL` (the test channel's webhook); the `GITHUB_REPO` and
+  `GITHUB_WORKFLOW` vars; and the repository secrets the workflow needs, `R2_ACCOUNT_ID`
+  among them, as listed in [SPEC Environments](../docs/SPEC.md#environments).
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
   the 1.5× cap threshold from them. Merge each tuning change to `main` before dispatching it
   (rule: **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).
