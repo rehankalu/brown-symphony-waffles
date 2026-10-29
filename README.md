@@ -107,8 +107,7 @@ Actions tab. So the admin:
    `GITHUB_DISPATCH_TOKEN`, so that account must be the admin's. This covers callback and
    step failures; a run that timed out may show as cancelled, and one that never started
    sends nothing.
-2. When a member says a Retry failed again, opens the recent failed or cancelled runs in the
-   Actions tab around the time of that Waffle's upload or Retry, finds the one whose log names
-   the Waffle's ID (the last part of its `/w/{id}` link), sees which step failed, and fixes
-   the cause. If no run names that ID, the run never started; check
+2. When a member says a Retry failed again, searches the Actions tab for the Waffle's ID (the
+   last part of its `/w/{id}` link), since each run's title is `transcode <id> (<env>)`, opens
+   the latest failed or cancelled one, sees which step failed, and fixes the cause. If no run names that ID, the run never started; check
    [GitHub Status](https://www.githubstatus.com) for Actions. The uploader then presses Retry.
