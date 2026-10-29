@@ -149,6 +149,13 @@ server cannot.
 - Multipart upload to R2 with presigned parts, progress, retry, resume, abort, the
   failed-upload messages and the abandoned-upload sweep, as in
   [SPEC Upload](../docs/SPEC.md#upload).
+- `GET /api/waffles` and `GET /api/waffles/:id` as in
+  [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), without the lazy
+  check from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), which Phase 3
+  adds; tested through the API. Phase 4 builds its screens on them.
+- The Upload screen up to its `processing` poll, and the owner's Unfinished uploads on the
+  This-week screen, as in [SPEC UI](../docs/SPEC.md#ui). The Upload screen's `ready` link
+  and `failed` Retry come with Phase 4, as does the rest of the This-week screen.
 - `complete` stops at `processing`: it sets `status` and `processing_at` and dispatches
   nothing until Phase 3 adds the dispatch, and its dispatch tests land there. Once Phase 3
   deploys, Phase 2's Waffles turn `failed` under **Stuck jobs** in
@@ -156,12 +163,20 @@ server cannot.
 
 **Exit criteria.** Each member uploads a real 10-minute Waffle from their own phone on mobile
 data and Wi-Fi, and the object in R2 is byte-identical to the original (size and SHA-256).
-On a phone, an upload whose connection is cut mid-way finishes with Resume, one whose tab is
-reloaded finishes when the same file is picked again, and Cancel upload removes the row and
-the multipart upload (an S3 `ListMultipartUploads` call, with the R2 keys read from
-environment variables and pasted nowhere, no longer lists it); one file close to 5 GiB also
-passes the size and SHA-256 check. Phase 2's test Waffles stay until Phase 4's Delete
-removes them.
+On a phone, an upload whose connection is cut mid-way shows under Unfinished uploads on its
+owner's This-week screen only and finishes with Resume, one whose tab is reloaded finishes
+when the same file is picked again, and Cancel upload removes the row and the multipart
+upload (an S3 `ListMultipartUploads` call, with the R2 keys read from environment variables
+and pasted nowhere, no longer lists it); one file close to 5 GiB also passes the size and
+SHA-256 check. After `complete`, the Upload screen shows `processing` and polls, and with
+the network cut for 3 polls it shows its connection note. Both GET routes return 401
+without a session. Under `wrangler dev`, an `uploading` row whose `uploaded_at` is set back
+8 days is gone after a `GET /api/waffles`, with its multipart upload aborted, and one set
+back just under 7 days stays. These pass their cases in
+[SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409 `cancelled`
+re-read, the abandoned-upload sweep, `uploading` Waffles, the Upload screen's polling (its
+404 and 401 included) and the `Content-Disposition` name. Phase 2's test Waffles stay until
+Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -191,11 +206,9 @@ removes them.
   [SPEC Discord notification](../docs/SPEC.md#discord-notification). Phase 5 builds the
   Waffle posts on it.
 - The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
-  its button.
-- `GET /api/waffles` and `GET /api/waffles/:id` as in
-  [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), with the lazy check
-  from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), tested through the API;
-  Phase 4 builds on them.
+  its buttons.
+- The lazy check from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), added
+  to Phase 2's `GET /api/waffles` and `GET /api/waffles/:id` and tested through the API.
 - The workflow follows the rules of **Untrusted inputs** in
   [SPEC Transcode](../docs/SPEC.md#transcode), its input check among them.
 
@@ -279,8 +292,9 @@ finds no inline interpolation of an input or secret and no shell tracing (rules:
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week (with its Unfinished uploads), Archive and Waffle screens and the player; delete
-  and the Retry button.
+- The rest of the This-week screen (around Phase 2's Unfinished uploads), the Archive and
+  Waffle screens and the player; delete; the Retry button on the Upload and Waffle screens,
+  and the Upload screen's `ready` link.
 - The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
   works offline anyway, and a caching service worker risks a stale shell after a
   deploy and intercepted R2 range requests.
@@ -289,10 +303,10 @@ finds no inline interpolation of an input or secret and no shell tracing (rules:
 and all three R2 objects. Added to the home screen from Safari on iOS and Chrome on Android,
 the app opens standalone with its name and icon, and
 `navigator.serviceWorker.getRegistrations()` returns an empty list.
-An upload stopped mid-way shows under Unfinished uploads on its owner's This-week screen
-only and does not fill their avatar; Resume on the same phone finishes it, and Cancel upload removes it.
+An upload stopped mid-way does not fill its owner's avatar on the This-week screen.
 
-**Why here.** It needs ready playback copies and the read routes from Phase 3.
+**Why here.** It needs ready playback copies from Phase 3 and the read routes from Phases 2
+and 3.
 
 ### Phase 5: Discord · planned
 
