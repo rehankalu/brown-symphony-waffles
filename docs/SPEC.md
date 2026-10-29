@@ -400,6 +400,7 @@ Start the Claude Code session by giving it this doc and `CLAUDE.md`, which alrea
 - Removed members (rules: [Auth](#auth)): each effect of setting `active` to 0, then setting it back to 1 with the old cookie, and signing in again while it is 0.
 - The `Content-Disposition` name (rules: the paragraph after **Abort or Delete**): a display name holding CR, LF, quotes or slashes, a non-ASCII name, and a name left empty.
 - The heatmap query, and the heatmap year (rules: the `/api/heatmap` row of [API routes](#api-routes-all-under-the-app-origin)): on a day in early January before the year's first Wednesday, the current heatmap year is still the previous one, so the new calendar year gets 400 `bad_year`.
+- The streaks (rules: **Participation heatmap** in [UI](#ui)): a table-driven test of the streak function, one row per streak case in Phase 6's exit criteria in [ROADMAP § Phases](../plans/ROADMAP.md#phases), each checking the Current streak and the Best YYYY streak it gives.
 - The token expiry check, beyond Phase 3's exit criteria (rules: **Unexpected errors** in [Transcode](#transcode)): a run that throws before any post.
 - The hand-dispatch checks of **Untrusted inputs** and the format checks of **Untrusted file** in Phase 3's exit criteria in [ROADMAP § Phases](../plans/ROADMAP.md#phases).
 

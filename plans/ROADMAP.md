@@ -142,9 +142,14 @@ and its lifecycle rule aborts multipart uploads left incomplete for 7 days
   [SPEC Environments](../docs/SPEC.md#environments).
 
 **Exit criteria.** All four can sign in from their phones, and a Discord account outside the
-server cannot. A `POST /auth/logout` with a valid session cookie and an `Origin` of another
-site gets 403 `bad_origin` and the session still works; each later route's cross-site cases
-follow with the phase that builds it (Phases 2 to 5).
+server cannot. Once in the server, that account (the admin's second account, joined for the
+check and removed after; no seeded `members` row is touched) still has no row in `members`,
+so it sees the "not a member" page and gets no session (rule:
+[SPEC Auth](../docs/SPEC.md#auth)). A member signed in before a redeploy of the Worker is
+still signed in after it. A `POST /auth/logout` with a
+valid session cookie and an `Origin` of another site gets 403 `bad_origin` and the session
+still works; each later route's cross-site cases follow with the phase that builds it
+(Phases 2 to 5).
 
 **Why here.** Every `/api` route but the transcode callback requires a session.
 
@@ -326,7 +331,12 @@ and all three R2 objects. Added to the home screen from Safari on iOS and Chrome
 the app opens standalone with its name and icon, and
 `navigator.serviceWorker.getRegistrations()` returns an empty list.
 An upload stopped mid-way does not fill its owner's avatar on the This-week screen.
-Delete passes its cross-site cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
+Two Waffles left `failed` by a rejected dispatch, as in Phase 3's invalid-token check, show
+Retry to their owner, one on the Upload screen (kept open) and one on the Waffle screen, and
+once the valid token is set back, each Retry takes its Waffle to `ready`; another member's
+Waffle screen for a `failed` Waffle shows no Retry. Delete passes its cross-site cases and,
+from **Delete and abort** in [SPEC Tests worth writing](../docs/SPEC.md#build-plan), a
+failure at each of its R2 calls followed by a repeat that finishes.
 
 **Why here.** It needs ready playback copies from Phase 3 and the read routes from Phases 2
 and 3.
@@ -340,10 +350,16 @@ and 3.
   [SPEC Discord notification](../docs/SPEC.md#discord-notification).
 
 **Exit criteria.** One message appears per ready Waffle, in a test channel first, with a
-working link, and the message is deleted with the Waffle. A revoked webhook leaves the
-Waffle `ready` with Post to Discord again; once `DISCORD_WEBHOOK_URL` holds a working
-webhook again, Post to Discord again posts one message and clears `discord_error`. A
-duplicate callback posts once. `POST /api/waffles/:id/discord` passes its cross-site cases in
+working link, and the message is deleted with the Waffle. In the test channel, which only
+the admin can see, a Waffle captioned `@everyone` posts and the admin gets no mention
+notification for it. A webhook revoked by deleting it in Discord leaves the Waffle `ready`
+with Post to Discord again. While it is still revoked, deleting a Waffle posted before the
+revoke removes its row and R2 objects, its message stays in the channel, and the Worker logs
+its `delete: discord message delete failed` line (rules:
+[SPEC Discord notification](../docs/SPEC.md#discord-notification)). Once
+`DISCORD_WEBHOOK_URL` holds a new test-channel webhook, Post to Discord again posts one
+message and clears `discord_error`. A duplicate callback posts once.
+`POST /api/waffles/:id/discord` passes its cross-site cases in
 [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
