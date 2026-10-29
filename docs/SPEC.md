@@ -288,7 +288,8 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 **Upload screen behaviour**
 
 - Warn that the screen must stay on while uploading, and request a Screen Wake Lock where the browser supports it.
-- Show `processing` after the upload completes, then update to `ready` (poll every 10 s) with a link to the Waffle.
+- Show `processing` after the upload completes, then poll `GET /api/waffles/:id` every 10 s until the Waffle is `ready` or `failed`. On `ready`, show a link to the Waffle. On `failed`, show the Waffle's `error` with Retry, which calls `POST /api/waffles/:id/retry` and then polls again whatever the answer: a 409 means the Waffle is no longer `failed` (a late `ready` recovered it or another Retry started it, see **Stuck jobs** in [Transcode](#transcode)), and a rejected dispatch or a failed Retry request shows up in the next poll.
+- A failed poll (a network error, a 5xx or a 429) keeps polling on the same 10 s schedule; after 3 failed polls in a row, the screen shows "Connection problem, still trying" until a poll succeeds. A 404 means the Waffle was deleted, so polling stops and the screen says so; a 401 means the member is signed out (see [Auth](#auth)), so polling stops and the screen goes to sign-in.
 - Before starting, check the picked file's size: a file over 5 GiB shows "Waffles can be up to 5 GiB." and starts nothing (the Worker repeats the check in **Upload checks** in [Upload](#upload)).
 - Resume an interrupted upload when the same file is picked again.
 - On a failed part or `complete`, show the message and actions from **Failed uploads** in [Upload](#upload).
@@ -296,7 +297,7 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 **Player**
 
 - `<video controls playsinline preload="metadata" poster=…>` pointing at the presigned playback URL.
-- While `processing`, show the poster if present and a "getting it ready" note; if `failed`, show the error and Retry.
+- While `processing`, show the poster if present and a "getting it ready" note; if `failed`, show the error and Retry, which behaves as on the Upload screen.
 
 **Participation heatmap**
 
