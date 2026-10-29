@@ -120,7 +120,12 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
   first needs, in the Worker and in `.dev.vars` as that section describes.
 
 **Exit criteria.** The deployed app returns a page through the custom Worker entry, and
-`db:migrate` runs locally and remotely.
+`db:migrate` runs locally and remotely. Read back from R2 (dashboard or Wrangler), each
+bucket's CORS rule allows `PUT` and the `content-type` header from its expected origins (the
+workers.dev origin on `waffles`, the local `APP_ORIGIN` on `waffles-dev`) and exposes `ETag`,
+and its lifecycle rule aborts multipart uploads left incomplete for 7 days
+(rules: [SPEC Upload](../docs/SPEC.md#upload) and
+[Storage layout](../docs/SPEC.md#storage-layout-r2-bucket-waffles-private)).
 
 **Why here.** Every later phase deploys to this Worker and reads this schema and these buckets.
 
@@ -151,6 +156,12 @@ server cannot.
 
 **Exit criteria.** Each member uploads a real 10-minute Waffle from their own phone on mobile
 data and Wi-Fi, and the object in R2 is byte-identical to the original (size and SHA-256).
+On a phone, an upload whose connection is cut mid-way finishes with Resume, one whose tab is
+reloaded finishes when the same file is picked again, and Cancel upload removes the row and
+the multipart upload (an S3 `ListMultipartUploads` call, with the R2 keys read from
+environment variables and pasted nowhere, no longer lists it); one file close to 5 GiB also
+passes the size and SHA-256 check. Phase 2's test Waffles stay until Phase 4's Delete
+removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -194,11 +205,16 @@ threshold comes out at 1080p. An H.264 SDR clip with no audio stream takes the r
 and its playback copy has no audio track, and an Android clip that ffprobe reports as
 `yuvj420p` takes the remux path and its playback copy keeps the original's `pix_fmt` and
 `color_range` (rule: the remux path in [SPEC Transcode](../docs/SPEC.md#transcode)). A
+10-bit H.264 clip and an H.264 clip with MP3 audio take the re-encode path, and a clip at
+1080p or below whose re-encoded copy exceeds 1.5× the original (for example an HEVC noise
+clip encoded at a low bitrate) is encoded again 2 CRF higher at its own resolution (rule: the
+size cap in [SPEC Transcode](../docs/SPEC.md#transcode)). A
 corrupt file ends `failed` with `probe:` or `encode:` and the first non-empty line of the
 tool's stderr as its stored error, while the run's log shows only the fixed line naming the
 Waffle ID and category (rule: **Failure output** in
 [SPEC Transcode](../docs/SPEC.md#transcode)). The no-audio and corrupt clips are made with
-ffmpeg (for example with `-an`, and by truncating a file), and no test clip is committed.
+ffmpeg (for example with `-an`, and by truncating a file), as are the 10-bit, MP3 and noise
+clips, and no test clip is committed.
 With an invalid dispatch token, a completed upload ends `failed` with the token message from
 **Rejected dispatch** in [SPEC Transcode](../docs/SPEC.md#transcode), the token appears in
 no stored error, API response or Worker log, and the original stays in R2. After a rejected dispatch, another
@@ -221,7 +237,8 @@ and is not retried. The 13-day, 15-day and 401 runs write no `token check` line.
 Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the check through the
 `scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture),
 and with an invalid token it posts the invalid-token alert, while the same Worker still serves
-a page and an `/api` route.
+a page and an `/api` route. The deployed Worker's triggers (dashboard or Wrangler) list the
+`0 14 * * *` Cron Trigger.
 With the valid token, a deployed upload's `complete` gets GitHub's 204: a
 `transcode <waffle id> (prod)` run appears in the Actions list and the Waffle stays
 `processing` with no `error`. The admin then sends the token expiry check's request by hand
@@ -243,7 +260,15 @@ only the fixed message, and no callback arrives; the secret is then set back to 
 repository secret set to a wrong value, an upload's run log ends with
 `callback: 401 <waffle id>`, the Worker log shows `callback rejected: 401` with no Waffle ID,
 and the Waffle stays `processing`; the secret is then set back (rule: **Callback** in
-[SPEC Transcode](../docs/SPEC.md#transcode)). A read of the workflow file before merge
+[SPEC Transcode](../docs/SPEC.md#transcode)). The admin finds that run by its Waffle ID with
+README [Transcodes that did not report back](../README.md#transcodes-that-did-not-report-back).
+A callback signed by hand with the dev-only `TRANSCODE_CALLBACK_SECRET` (read from an
+environment variable and pasted nowhere), a current timestamp and a well-formed ULID that
+matches no Waffle gets 401, not the `no_waffle` 404, from the deployed Worker, which logs
+`callback rejected: 401`. Before launch, while no Waffle is `processing` and members are not
+uploading, the admin runs each rotation runbook in README
+[Operations](../README.md#operations) once end to end (dispatch token, R2 keys, callback
+secret), and an upload after each reaches `ready`. A read of the workflow file before merge
 finds no inline interpolation of an input or secret and no shell tracing (rules:
 **Untrusted inputs** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 
@@ -319,7 +344,12 @@ callback's zone rate limit. **Exit check:** the rule reads back from the zone's 
 rules (dashboard or API) as SPEC states it, and a burst of 11 unsigned POSTs to
 `/api/internal/transcode-callback` within 10 seconds gets a 429 for the 11th, with no Worker
 log line for it (rule: **Callback rate limit** in
-[SPEC Environments](../docs/SPEC.md#environments)).
+[SPEC Environments](../docs/SPEC.md#environments)). **Cutover check:** after step 8, a member
+signs in on the new origin, an upload started after step 6 reaches `ready` with its callback
+sent to the new origin (Workers Logs shows the callback request on the new hostname), and
+the Discord post's link opens that Waffle, which is then deleted; after step 9, the
+workers.dev origin no longer serves the app and the `waffles` CORS rule, read back, lists
+only the new origin.
 
 ## Maintaining this file
 
