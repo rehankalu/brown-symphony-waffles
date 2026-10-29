@@ -174,9 +174,9 @@ without a session. Under `wrangler dev`, an `uploading` row whose `uploaded_at` 
 8 days is gone after a `GET /api/waffles`, with its multipart upload aborted, and one set
 back just under 7 days stays. These pass their cases in
 [SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409 `cancelled`
-re-read, the abandoned-upload sweep, `uploading` Waffles, the Upload screen's polling (its
-404 and 401 included) and the `Content-Disposition` name. Phase 2's test Waffles stay until
-Phase 4's Delete removes them.
+re-read, the upload checks, the abandoned-upload sweep, `uploading` Waffles, the Upload
+screen's polling (its 404 and 401 included) and the `Content-Disposition` name. Phase 2's
+test Waffles stay until Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
