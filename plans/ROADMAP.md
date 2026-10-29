@@ -173,7 +173,8 @@ removes them.
 - The fine-grained PAT, created as in [SPEC Transcode](../docs/SPEC.md#transcode); the
   Worker secrets `GITHUB_DISPATCH_TOKEN`, `TRANSCODE_CALLBACK_SECRET` and
   `DISCORD_WEBHOOK_URL` (the test channel's webhook); and the repository secrets the
-  workflow needs, as listed in [SPEC Environments](../docs/SPEC.md#environments).
+  workflow needs, `R2_ACCOUNT_ID` among them, as listed in
+  [SPEC Environments](../docs/SPEC.md#environments).
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
   the 1.5× cap threshold from them. Merge each tuning change to `main` before dispatching it
   (rule: **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).

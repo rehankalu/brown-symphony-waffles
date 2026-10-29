@@ -282,3 +282,91 @@ Most failure paths are handled well.
 - [x] **Re-wrap the stuck-transcode runbook** (item 1 already kept every line within the wrap width; step 2's tail lines re-flowed to fill it, wording unchanged) — `README.md:98` — Re-wrap step 2 to the surrounding line width.
 
 6b: 0 misses (the only Review 3 findings on lines unchanged since 70a9e41 and inside Review 2's diff, `docs/SPEC.md` 238 at that head (Discord message) and 112 (expiry header), sit within ±5 of lines Review 2 reported, 239 and 114)
+
+## Review 4
+Generated: 2026-10-29 09:45
+Comparison: origin/docs/spec b0e089f0a6fa27f629a846f7c4fc11df2bfe1442..d778742a49ceebce86bbf5de45b492c46d3f696a
+Verdict: **BLOCKED**
+
+Mode: full review (first non-docs path: `docs/SPEC.md`); Type Design not launched (no code type definitions).
+
+### Results by Reviewer
+
+#### 1. Safety & Security — PASS
+The untrusted-input rules, the signed callback, the masked logs and the guarded operations all hold up. Only minor hardening gaps remain:
+- (minor) `docs/SPEC.md:52`, `docs/SPEC.md:235`: `POST /api/uploads` validates `ext` and size but not `caption` (no length cap) or `week_start` (no rule that it is this or last Waffle week's Wednesday). `week_start` goes into the download name and `caption` into Discord and the UI.
+- (minor) `docs/SPEC.md:93`: nothing says the callback route fails closed when `TRANSCODE_CALLBACK_SECRET` is unset or empty. An empty HMAC key makes signatures forgeable.
+- (minor) `docs/SPEC.md:79`: ffmpeg auto-detects the demuxer on a member-uploaded file, so a crafted playlist or concat input could read local files or fetch URLs on a runner that holds the R2 keys. The workflow's actions aren't pinned to SHAs and its `GITHUB_TOKEN` permissions aren't stated.
+- (minor) `docs/SPEC.md:224`: CSRF defence rests on `SameSite=Lax` alone. State-changing routes have no Origin check.
+
+#### 2. Correctness — PASS
+Cross-document facts, anchors and boundary values (149/150 min, 300/301 s, 119/121 s, 13/15 days, 103 parts, the 53-week year) are consistent.
+- (minor) `docs/SPEC.md:343`: the workflow's repository secrets don't include `R2_ACCOUNT_ID`, which the S3 endpoint needs (same as reviewer 7).
+- (minor) `docs/SPEC.md:43`: the pipeline intro says "original resolution and frame rate", but elsewhere the copy is capped at 1080p when it would exceed 1.5× the original's size.
+- (minor) `docs/SPEC.md:235`: no rule validates the client-supplied `week_start` (same as reviewer 1).
+
+#### 3. Simplicity & Conciseness — FAIL
+- (major) `docs/SPEC.md:351`: the Callback rate limit WAF rule adds a zone rule, a cutover step, a ROADMAP exit check and a drill to protect the log quota for a four-person app, when the HMAC check already rejects unsigned requests cheaply. Commit ce092ed cites dd-261028-009 for adding it, but SPEC records no decision.
+- (minor) `README.md:35`, `README.md:70`, `README.md:95`: "Never paste it anywhere else…" appears three times and copies CLAUDE.md's rule.
+- (minor) `README.md:97`: step 2 of the stuck-transcode runbook re-explains each callback failure line that SPEC already defines.
+- (minor) `README.md:62`: step 5 of the R2 key rotation packs timing, URL invalidation and a leak audit into one item.
+- (minor) `docs/SPEC.md:376`: Tests worth writing still restates many rules.
+- (minor) `docs/SPEC.md:54`: Failed uploads gives seven failure shapes their own message and recovery, including a one-minute re-read loop for a 409 `cancelled`.
+
+#### 4. Test Coverage — PASS
+Nearly every specified behaviour has a test or an exit check. Only minor drill gaps remain:
+- (minor) `plans/ROADMAP.md:140`: Phase 1 has no drill for a guild member who isn't in `members`, for a removed member, or for a session surviving a redeploy.
+- (minor) `plans/ROADMAP.md:287`: Phase 4 has no exit check for the Retry button, and none for a Delete repeated after an R2 failure.
+- (minor) `plans/ROADMAP.md:304`: Phase 5 has no real-channel drill for an `@everyone` caption or for a Delete after the webhook was revoked.
+- (minor) `docs/SPEC.md:376`: no named table-driven test covers the streak and Best-streak calculation.
+
+#### 5. Completeness & Cleanup — PASS
+No stale references to removed features, every anchor resolves, and the review ticks match the fixes.
+- (minor) `plans/META-PLAN.md:35`: Verification says "pending", which the first feature with tests must replace (intended).
+- (minor) `README.md:13`: Getting started and Tests are still scaffold placeholders, which matches CLAUDE.md (intended).
+
+#### 6. Consistency & Style — PASS
+Routes, error codes, log lines, env vars and terms are consistent across the docs.
+- (minor) `README.md:24`: this line is the longest in Operations. Re-flowing it is optional.
+
+#### 7. Integration Risk — FAIL
+- (major) `docs/SPEC.md:343`: the workflow signs R2 S3 requests against `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`, but its repository secrets list only the R2 keys, the callback secret and `CALLBACK_BASE_URL`. `R2_ACCOUNT_ID` is a Worker secret only, and ROADMAP Phase 3 defers to this list.
+- (major) `plans/ROADMAP.md:145`: Phase 2 relies on `GET /api/waffles/:id` (the 409 `cancelled` re-read and the Upload screen's poll) and on `GET /api/waffles` (the trigger for the abandoned-upload sweep), but Phase 3 builds both routes.
+- (minor) `plans/ROADMAP.md:132`: no phase schedules the `[vars]` block (`APP_ORIGIN`, `GITHUB_REPO`, `GITHUB_WORKFLOW`, `TRANSCODE_ENV`, `GROUP_TZ`) or registering the Discord redirect URIs, which Phase 1's sign-in needs.
+- (minor) `docs/SPEC.md:374`: nothing says when to change the `DISCORD_WEBHOOK_URL` secret to the real channel at launch (leaving `.dev.vars` on the test channel), or that token alerts follow it.
+- (minor) `plans/ROADMAP.md:170`: Phase 3 doesn't say the workflow file must be merged to main first, or that `GITHUB_WORKFLOW` must match its file name.
+
+#### 8. Error Handling & Silent Failures — PASS
+Every failure path has a fixed, ID-only log line or an actionable message. Catches are scoped, and retries end in a visible failure.
+- (minor) `docs/SPEC.md:47`: a failed `waffles` row insert after the multipart create returns a 5xx with no fixed log line.
+- (minor) `docs/SPEC.md:109`: a rejected dispatch writes no Worker log line.
+- (minor) `docs/SPEC.md:93`: an unexpected exception in the callback route (a D1 failure, for example) has no fixed log line.
+
+### To-Do: Required Changes
+
+- [x] **Give the workflow the R2 account ID** — `docs/SPEC.md` (Environments ~line 343), `plans/ROADMAP.md` (Phase 3 secret list) — Add `R2_ACCOUNT_ID` to the repository secrets (or a repository variable) the transcode workflow needs, and name it in Phase 3's secret list.
+- [ ] **Fix Phase 2's dependency on Phase 3's GET routes** — `plans/ROADMAP.md` (~lines 145-160, Phase 3 ~line 194), `docs/SPEC.md` (Failed uploads ~line 57, sweep ~line 63, Upload screen poll) — Either move `GET /api/waffles` and `GET /api/waffles/:id` (without the stuck-jobs check) into Phase 2, or say that Phase 2's 409 re-read, poll and sweep trigger use only what Phase 2 builds, and that the GET-route triggers arrive in Phase 3.
+- [ ] **Decide whether to keep the callback WAF rate limit** — `docs/SPEC.md` (~lines 351, 356), `plans/ROADMAP.md` (~lines 343-346) — Either drop the rule, its cutover step and its exit check, or keep it and cite dd-261028-009 next to it so the choice is recorded where it lives.
+- [ ] **Validate `week_start` and `caption` on upload start** — `docs/SPEC.md` (Upload checks ~line 52, route table ~line 235, Tests worth writing) — Accept only the current or previous Waffle week's Wednesday as `week_start` (anything else gets a 400 with a stable code), trim `caption` and cap its length well under Discord's 2000 characters, and add test cases for both.
+- [ ] **Fail closed on an empty callback secret** — `docs/SPEC.md` (Callback ~line 93, Tests worth writing) — Reject every callback, with a fixed log line, when `TRANSCODE_CALLBACK_SECRET` is missing or empty, have the workflow refuse to run with an empty secret, and add a test.
+- [ ] **Harden the ffmpeg input and the workflow's permissions** — `docs/SPEC.md` (Transcode step 2 ~line 79) — Require ffprobe's `format_name` to be in the mov/mp4 family, read the original with an explicit `-f mov` or a file-only protocol whitelist, pin third-party actions to commit SHAs, and set the job's `GITHUB_TOKEN` permissions to read-only or none.
+- [ ] **Add an Origin check on state-changing routes** — `docs/SPEC.md` (Auth ~line 224) — Reject a POST or DELETE to `/api` or `/auth` whose `Origin` header is present and isn't `APP_ORIGIN`, and require `application/json` on the JSON routes.
+- [ ] **Say the playback copy may be capped at 1080p** — `docs/SPEC.md:43` — Add the 1080p cap (when the copy would exceed 1.5× the original's size) to the pipeline intro, or link to it.
+- [ ] **Schedule the Worker `[vars]` and the Discord redirect URIs** — `plans/ROADMAP.md` (Phases 0, 1, 3) — Put the `[vars]` block in Phase 0 (or `APP_ORIGIN` and the redirect URI registration in Phase 1, and `GITHUB_*` and `TRANSCODE_ENV` in Phase 3), and say which phase first needs `GROUP_TZ`.
+- [ ] **Add the launch webhook swap** — `plans/ROADMAP.md` (Launch) or `README.md` (Operations) — Add a launch step: `wrangler secret put DISCORD_WEBHOOK_URL` with the real channel's webhook, `.dev.vars` stays on the test channel, and token alerts move with the webhook.
+- [ ] **Merge the workflow file before Phase 3's checks** — `plans/ROADMAP.md` (Phase 3 scope ~line 170) — Say the transcode workflow is merged to main before any Phase 3 dispatch check, and that `GITHUB_WORKFLOW` matches its file name.
+- [ ] **Log the three remaining unlogged failures** — `docs/SPEC.md` (~lines 47, 93, 109) — Add fixed lines: `upload start: row insert failed` before the 5xx, `dispatch rejected: <status|network> <waffle id>` on a rejected dispatch, and `callback: error <waffle id>` with a 500 on an unexpected callback-route error.
+- [ ] **Trim the README's repeated and restated prose** — `README.md` (~lines 35, 62-68, 70, 95, 97-123) — State the never-paste-secrets warning once (or link to CLAUDE.md § Project rules). Cut step 2 of the stuck-transcode runbook to finding the run and reading its last line, with a link to SPEC's Callback for what each line means. Shorten step 5 of the R2 key rotation.
+- [ ] **Consider merging the Failed uploads outcomes and the restated tests** — `docs/SPEC.md` (~lines 54-63, 376-397) — Merge the non-retryable upload failures into one "cancel and upload again" outcome, and keep in Tests worth writing only the cases the rules don't spell out. Or keep both as decided and say so.
+- [ ] **Fill the remaining drill gaps** — `plans/ROADMAP.md` (Phases 1, 4, 5), `docs/SPEC.md` (Tests worth writing) — Phase 1: a guild member who isn't in `members` is refused, and a session survives a redeploy. Phase 4: the Retry button reaches `ready` for its owner and is absent for others, and a Delete repeated after an injected R2 failure finishes. Phase 5: an `@everyone` caption pings nobody in the real channel, and deleting a Waffle after the webhook was revoked still deletes it. SPEC: a table-driven test of the streak and Best-streak calculation.
+- [ ] **Optionally re-flow README line 24** — `README.md:24` — Re-wrap it to the surrounding Operations width.
+
+### Missed Findings
+
+| Finding | Severity | Unit | Ledger id |
+|---|---|---|---|
+| `POST /api/uploads` doesn't validate `week_start` or `caption` (`docs/SPEC.md:235`) | minor | subagent-1:safety-security | git-push-20261029-001 |
+| No Origin check, so CSRF rests on SameSite=Lax alone (`docs/SPEC.md:224`) | minor | subagent-1:safety-security | git-push-20261029-002 |
+| A failed row insert after the multipart create has no log line (`docs/SPEC.md:47`) | minor | subagent-8:error-handling | git-push-20261029-003 |
+| Step 5 of the R2 key rotation is overly branchy (`README.md:62`) | minor | subagent-3:simplicity | git-push-20261029-004 |
+| The never-paste-secrets warning is repeated (`README.md:70`) | minor | subagent-3:simplicity | git-push-20261029-005 |
