@@ -192,12 +192,13 @@ With fixture GitHub responses and a dummy token, the token expiry check sends th
 request headers from [SPEC Transcode](../docs/SPEC.md#transcode) and posts one alert for a token
 expiring 13 days after the run and one each for a 401, a 403 and a 404, and posts nothing
 for a token expiring 15 days after the run, one expiring in a far-future year such as 2099,
-a missing expiry header, an unparseable one, a 5xx or a network error; the unparseable
-header, the 5xx and the network error each write their fixed `token check:` line to the
-Worker log, and a failed alert post writes its `token check alert failed:` line and is not
-retried. The 13-day, 15-day and 401 runs write no `token check` line. No `token check` line
-or alert holds the token, the webhook URL or a fixture response body (rules: **Token expiry
-check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+a missing expiry header, an empty one, an unparseable one, a 5xx or a network error; the
+missing and empty headers, the unparseable one, the 5xx and the network error each write
+their fixed `token check:` line to the Worker log (`token check: no expiry header` for the
+missing and empty ones), and a failed alert post writes its `token check alert failed:` line
+and is not retried. The 13-day, 15-day and 401 runs write no `token check` line. No
+`token check` line or alert holds the token, the webhook URL or a fixture response body
+(rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the check through the
 `scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture),
 and with an invalid token it posts the invalid-token alert, while the same Worker still serves
