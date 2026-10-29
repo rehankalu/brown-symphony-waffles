@@ -40,7 +40,7 @@ The phone uploads directly to R2 with presigned URLs. The Worker records metadat
 
 ## Video pipeline
 
-Every Waffle keeps its untouched original and gets one playback MP4 (H.264, AAC, SDR, original resolution and frame rate) that plays on iOS, Android, Windows, macOS and every current browser.
+Every Waffle keeps its untouched original and gets one playback MP4 (H.264, AAC, SDR, original frame rate, and original resolution unless the [size cap](#transcode) applies) that plays on iOS, Android, Windows, macOS and every current browser.
 
 ### Upload
 
