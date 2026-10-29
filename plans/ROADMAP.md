@@ -165,11 +165,8 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
   [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), with the lazy check
   from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), tested through the API;
   Phase 4 builds on them.
-- The CI check and the validation script with its tests from **Untrusted inputs** in
-  [SPEC Transcode](../docs/SPEC.md#transcode).
-- Land the CI check first, make it a required status check on `main` as **Untrusted inputs**
-  states, then merge the transcode workflow. Classic branch protection lists only checks that
-  have reported in the past 7 days, so set the rule soon after the check's first run.
+- The workflow follows the rules of **Untrusted inputs** in
+  [SPEC Transcode](../docs/SPEC.md#transcode), its input check among them.
 
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
 from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
@@ -205,8 +202,8 @@ Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the chec
 and with an invalid token it posts the invalid-token alert, while the same Worker still serves
 a page and an `/api` route.
 A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
-metacharacters (for example `$(id)`) fails before downloading anything, the validation
-script's output is only the fixed rejection message, and no callback arrives; a hand dispatch
+metacharacters (for example `$(id)`) fails before downloading anything, the input check's
+output is only the fixed rejection message, and no callback arrives; a hand dispatch
 with `env=other` starts no run. A hand dispatch with `env=dev` and the ID of a Waffle
 uploaded under `wrangler dev` writes its playback copy to `waffles-dev` and sends no
 callback. While no Waffle is `processing`, with the `CALLBACK_BASE_URL` secret deleted (so
@@ -218,10 +215,9 @@ only the fixed message, and no callback arrives; the secret is then set back to 
 repository secret set to a wrong value, an upload's run log ends with
 `callback: 401 <waffle id>`, the Worker log shows `callback rejected: 401` with no Waffle ID,
 and the Waffle stays `processing`; the secret is then set back (rule: **Callback** in
-[SPEC Transcode](../docs/SPEC.md#transcode)). The CI check fails on a branch that adds
-`${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds
-`set -ex`, and GitHub refuses to merge either branch into `main`. The validation script's
-tests from **Untrusted inputs** pass in CI.
+[SPEC Transcode](../docs/SPEC.md#transcode)). A read of the workflow file before merge
+finds no inline interpolation of an input or secret and no shell tracing (rules:
+**Untrusted inputs** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
