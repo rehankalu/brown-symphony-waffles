@@ -188,7 +188,8 @@ nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Wa
 `processing_at` is backdated past 150 minutes reads as `failed` with the **Stuck jobs**
 message from [SPEC Transcode](../docs/SPEC.md#transcode) in both GET routes, and a `ready`
 Waffle with the same `processing_at` stays `ready`.
-With fixture GitHub responses, the token expiry check posts one alert for a token
+With fixture GitHub responses and a dummy token, the token expiry check sends the GitHub
+request headers from [SPEC Transcode](../docs/SPEC.md#transcode) and posts one alert for a token
 expiring 13 days after the run and one each for a 401, a 403 and a 404, and posts nothing
 for a token expiring 15 days after the run, one expiring in a far-future year such as 2099,
 a missing expiry header, an unparseable one, a 5xx or a network error; the unparseable
@@ -201,6 +202,13 @@ Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the chec
 `scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture),
 and with an invalid token it posts the invalid-token alert, while the same Worker still serves
 a page and an `/api` route.
+With the valid token, a deployed upload's `complete` gets GitHub's 204: a
+`transcode <waffle id> (prod)` run appears in the Actions list and the Waffle stays
+`processing` with no `error`. The admin then sends the token expiry check's request by hand
+from a local shell with `curl -sI` and the same four headers, the token read from an
+environment variable, the output filtered to the `github-authentication-token-expiration`
+line, which must be present; the token and the other headers are pasted nowhere (rule: the
+GitHub request headers in [SPEC Transcode](../docs/SPEC.md#transcode)).
 A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
 metacharacters (for example `$(id)`) fails before downloading anything, the input check's
 output is only the fixed rejection message, and no callback arrives; a hand dispatch
