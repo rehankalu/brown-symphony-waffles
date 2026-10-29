@@ -197,11 +197,14 @@ sweep, `uploading` Waffles, the Upload screen's polling (its 404 and 401 include
 - The fine-grained PAT, created as in [SPEC Transcode](../docs/SPEC.md#transcode); the
   Worker secrets `GITHUB_DISPATCH_TOKEN`, `TRANSCODE_CALLBACK_SECRET` and
   `DISCORD_WEBHOOK_URL` (the test channel's webhook); the `GITHUB_REPO` and
-  `GITHUB_WORKFLOW` vars; and the repository secrets the workflow needs, `R2_ACCOUNT_ID`
-  among them, as listed in [SPEC Environments](../docs/SPEC.md#environments).
+  `GITHUB_WORKFLOW` vars (the latter matching the workflow's file name); and the repository
+  secrets the workflow needs, `R2_ACCOUNT_ID` among them, as listed in
+  [SPEC Environments](../docs/SPEC.md#environments).
+- Once the workflow-file read in the exit criteria passes, merge the workflow file to `main`
+  before any Phase 3 dispatch check, and each tuning change before dispatching it (rule:
+  **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
-  the 1.5× cap threshold from them. Merge each tuning change to `main` before dispatching it
-  (rule: **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+  the 1.5× cap threshold from them.
 - `complete` and Retry start the workflow with `workflow_dispatch`; the dispatch token, the
   daily token expiry check and rejected dispatches are as in
   [SPEC Transcode](../docs/SPEC.md#transcode).
@@ -298,8 +301,8 @@ matches no Waffle gets 401, not the `no_waffle` 404, from the deployed Worker, w
 `callback rejected: 401`. Before launch, while no Waffle is `processing` and members are not
 uploading, the admin runs each rotation runbook in README
 [Operations](../README.md#operations) once end to end (dispatch token, R2 keys, callback
-secret), and an upload after each reaches `ready`. A read of the workflow file before merge
-finds no inline interpolation of an input or secret, no shell tracing, top-level
+secret), and an upload after each reaches `ready`. A read of the workflow file before each
+merge finds no inline interpolation of an input or secret, no shell tracing, top-level
 `permissions: contents: read` with no job-level `permissions:`, every `uses:` pinned to a
 full commit SHA, and `-protocol_whitelist file -f mov` with no `-enable_drefs` on every
 ffprobe and ffmpeg command that reads `original` (rules: **Untrusted inputs**, **Workflow
