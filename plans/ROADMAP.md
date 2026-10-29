@@ -293,6 +293,14 @@ and size) come first. 4 before 5 is a preference (the Discord link lands on the 
 screen), not a hard dependency: 5 needs only Phase 3's `ready` state. Launch follows Phase 6:
 point the webhook at the real channel, run two Wednesdays alongside WhatsApp, then retire it.
 
+The [domain cutover](../docs/SPEC.md#domain-cutover-after-the-prototype-is-proven) is not a
+phase; it runs once the prototype is proven, since only the custom domain can carry the
+callback's zone rate limit. **Exit check:** the rule reads back from the zone's rate-limiting
+rules (dashboard or API) as SPEC states it, and a burst of 11 unsigned POSTs to
+`/api/internal/transcode-callback` within 10 seconds gets a 429 for the 11th, with no Worker
+log line for it (rule: **Callback rate limit** in
+[SPEC Environments](../docs/SPEC.md#environments)).
+
 ## Maintaining this file
 
 - **Who updates it:** the `/run-feature` fold-back that merges a phase's last remaining
