@@ -134,11 +134,15 @@ and its lifecycle rule aborts multipart uploads left incomplete for 7 days
 **Goal.** Only the four members can get in. **Advances capabilities:** 6.
 
 - Discord OAuth, guild and `members` checks, sessions, the four members seeded.
+- The cross-site Origin and JSON checks from [SPEC Auth](../docs/SPEC.md#auth), as a server
+  hook that every later POST and DELETE route passes through.
 - The Discord application, with the Worker secrets `DISCORD_CLIENT_ID`,
   `DISCORD_CLIENT_SECRET` and `DISCORD_GUILD_ID`.
 
 **Exit criteria.** All four can sign in from their phones, and a Discord account outside the
-server cannot.
+server cannot. A `POST /auth/logout` with a valid session cookie and an `Origin` of another
+site gets 403 `bad_origin` and the session still works; each later route's cross-site cases
+follow with the phase that builds it (Phases 2 to 5).
 
 **Why here.** Every `/api` route but the transcode callback requires a session.
 
@@ -174,9 +178,9 @@ without a session. Under `wrangler dev`, an `uploading` row whose `uploaded_at` 
 8 days is gone after a `GET /api/waffles`, with its multipart upload aborted, and one set
 back just under 7 days stays. These pass their cases in
 [SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409 `cancelled`
-re-read, the upload checks, the abandoned-upload sweep, `uploading` Waffles, the Upload
-screen's polling (its 404 and 401 included) and the `Content-Disposition` name. Phase 2's
-test Waffles stay until Phase 4's Delete removes them.
+re-read, the upload checks, the cross-site checks on the upload routes, the abandoned-upload
+sweep, `uploading` Waffles, the Upload screen's polling (its 404 and 401 included) and the
+`Content-Disposition` name. Phase 2's test Waffles stay until Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -240,7 +244,8 @@ member's Retry is refused while the Waffle is still `failed`, leaving it `failed
 nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Waffle whose
 `processing_at` is backdated past 150 minutes reads as `failed` with the **Stuck jobs**
 message from [SPEC Transcode](../docs/SPEC.md#transcode) in both GET routes, and a `ready`
-Waffle with the same `processing_at` stays `ready`.
+Waffle with the same `processing_at` stays `ready`. The Retry route passes its cross-site
+cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 With fixture GitHub responses and a dummy token, the token expiry check sends the GitHub
 request headers from [SPEC Transcode](../docs/SPEC.md#transcode) and posts one alert for a token
 expiring 13 days after the run and one each for a 401, a 403 and a 404, and posts nothing
@@ -313,6 +318,7 @@ and all three R2 objects. Added to the home screen from Safari on iOS and Chrome
 the app opens standalone with its name and icon, and
 `navigator.serviceWorker.getRegistrations()` returns an empty list.
 An upload stopped mid-way does not fill its owner's avatar on the This-week screen.
+Delete passes its cross-site cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It needs ready playback copies from Phase 3 and the read routes from Phases 2
 and 3.
@@ -329,7 +335,8 @@ and 3.
 working link, and the message is deleted with the Waffle. A revoked webhook leaves the
 Waffle `ready` with Post to Discord again; once `DISCORD_WEBHOOK_URL` holds a working
 webhook again, Post to Discord again posts one message and clears `discord_error`. A
-duplicate callback posts once.
+duplicate callback posts once. `POST /api/waffles/:id/discord` passes its cross-site cases in
+[SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
 
