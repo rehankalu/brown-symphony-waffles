@@ -209,8 +209,9 @@ test Waffles stay until Phase 4's Delete removes them.
   its buttons.
 - The lazy check from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), added
   to Phase 2's `GET /api/waffles` and `GET /api/waffles/:id` and tested through the API.
-- The workflow follows the rules of **Untrusted inputs** in
-  [SPEC Transcode](../docs/SPEC.md#transcode), its input check among them.
+- The workflow follows the rules of **Untrusted inputs**, **Workflow permissions** and
+  **Untrusted file** in [SPEC Transcode](../docs/SPEC.md#transcode), its input check among
+  them.
 
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
 from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
@@ -228,7 +229,10 @@ tool's stderr as its stored error, while the run's log shows only the fixed line
 Waffle ID and category (rule: **Failure output** in
 [SPEC Transcode](../docs/SPEC.md#transcode)). The no-audio and corrupt clips are made with
 ffmpeg (for example with `-an`, and by truncating a file), as are the 10-bit, MP3 and noise
-clips, and no test clip is committed.
+clips, and no test clip is committed. An `.m4v` clip made with ffmpeg reaches `ready`,
+while a Matroska file and an `ffconcat version 1.0` file naming another file, each renamed
+to `clip.mp4`, end `failed` with a `probe:` error and start no ffmpeg (rule: **Untrusted
+file** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 With an invalid dispatch token, a completed upload ends `failed` with the token message from
 **Rejected dispatch** in [SPEC Transcode](../docs/SPEC.md#transcode), the token appears in
 no stored error, API response or Worker log, and the original stays in R2. After a rejected dispatch, another
@@ -285,8 +289,11 @@ matches no Waffle gets 401, not the `no_waffle` 404, from the deployed Worker, w
 uploading, the admin runs each rotation runbook in README
 [Operations](../README.md#operations) once end to end (dispatch token, R2 keys, callback
 secret), and an upload after each reaches `ready`. A read of the workflow file before merge
-finds no inline interpolation of an input or secret and no shell tracing (rules:
-**Untrusted inputs** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+finds no inline interpolation of an input or secret, no shell tracing, top-level
+`permissions: contents: read` with no job-level `permissions:`, every `uses:` pinned to a
+full commit SHA, and `-protocol_whitelist file -f mov` with no `-enable_drefs` on every
+ffprobe and ffmpeg command that reads `original` (rules: **Untrusted inputs**, **Workflow
+permissions** and **Untrusted file** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
