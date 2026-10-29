@@ -31,7 +31,7 @@ The phone uploads directly to R2 with presigned URLs. The Worker records metadat
 | --- | --- |
 | Phone browser (PWA) | Sign in, upload, browse, play, heatmap |
 | Cloudflare Worker (SvelteKit) | UI, API, OAuth, presigned URLs, webhook calls, daily token expiry check |
-| D1 | Members, Waffles, sessions, token expiry check state |
+| D1 | Members, Waffles, sessions |
 | R2 bucket `waffles` | Originals, playback MP4s, posters |
 | GitHub Actions | ffprobe and ffmpeg: remux or re-encode, poster frame |
 | Discord webhook | One message per ready Waffle, plus the admin's token expiry alert |
@@ -115,10 +115,9 @@ The job sends each callback without following redirects, gives each request a 20
 - On a 2xx, the `github-authentication-token-expiration` response header gives the expiry as a UTC timestamp (for example `2026-11-01 00:00:00 UTC`). An expiry within 14 days counts as expiring. A missing header (a token with no expiry) never alerts; an unparseable one is treated like any other failure below.
 - An invalid or expiring token posts a fixed plain-text message, with no @mention, to the channel webhook (`DISCORD_WEBHOOK_URL`) once per daily run until the token is renewed. Expiring: "Admin: the GitHub token that starts transcodes expires on `YYYY-MM-DD`. Renew it before uploads fail; see the README's token rotation steps." Invalid: "Admin: GitHub refused the token that starts transcodes, so uploads will fail. Renew it; see the README's token rotation steps."
 - Any other status code, a network error or an unparseable header alerts nothing and is checked again the next day. The alert post makes one attempt, with no retry, so a failed post is repeated the next day.
-- A failed run writes one fixed line to the Worker log: `token check: <status code, network or unparseable>` when GitHub's answer alerts nothing, `token check: error` when the run throws (see **Unexpected errors** below), and `token check alert failed: <status code or network>` for each post that fails. A passing run writes no line. The Wrangler config turns on Workers Logs (`[observability] enabled = true`), so these lines are kept for the admin to read after the run. Like the dispatch, the check never stores or logs GitHub's or Discord's response body or headers, or the webhook URL; only the expiry date appears in the message.
-- **Failure count.** Each run records its result in the single-row `token_check` table (see [Data model](#data-model)) with one atomic upsert of row 1 (`INSERT … ON CONFLICT(id) DO UPDATE … RETURNING consecutive_failures`), so the first run creates the row. A run *passes* when GitHub answered 2xx with a missing or parseable expiry header, or 401, 403 or 404, and any expiring or invalid alert it owed was posted; it sets `consecutive_failures` to 0. A delivered alert counts as a pass on purpose: the admin already hears about an expiring or invalid token from that alert, so the count tracks only a check or alert path that has gone quiet. Any other run (another status code, `network`, `unparseable`, a failed alert post, or a throw before or at the upsert; see **Unexpected errors**) adds 1. Every run also sets `last_checked_at` and `last_alert`: the result of the last post it made (`sent`, the status code or `network`), or NULL when it made none.
-- **Three failed days.** When the upsert returns exactly 3, that run posts one fixed message to the same webhook, with one attempt and no retry: "Admin: the daily GitHub token check has failed for 3 days. Check the Worker log for `token check` lines." Later failed runs do not post it again, and its own failure only writes the `token check alert failed:` line. While `consecutive_failures` is 3 or more, the This-week screen shows every member a banner (see [UI](#ui)), because that Discord post never arrives when the webhook itself is what failed. The next passing run clears the banner.
-- **Unexpected errors.** The `scheduled` handler catches any exception the check throws (for example a failed D1 upsert), writes the fixed line `token check: error` to the Worker log, with no response body, headers or token, and returns, so the next day's run tries again. When the throw came before or at the run's upsert, the catch makes one best-effort upsert of row 1 that adds 1 to `consecutive_failures` and sets `last_checked_at` and `last_alert` as any run does, and the **Three failed days** rule applies to the count it returns, as for any failed run; if that upsert also fails, nothing is counted. When the throw came after a successful upsert, that result stands and nothing is retried that day. Accepted: an upsert that committed but still threw is counted twice, so the count can skip 3 and leave only the banner to report it.
+- A failed run writes one fixed line to the Worker log: `token check: <status code, network or unparseable>` when GitHub's answer alerts nothing, `token check: error` when the run throws (see **Unexpected errors** below), and `token check alert failed: <status code or network>` for each post that fails. A run that gets a 2xx with a missing or parseable header, or a 401, 403 or 404, and posts any alert it owes writes no line. The Wrangler config turns on Workers Logs (`[observability] enabled = true`), so these lines are kept for the admin to read after the run. Like the dispatch, the check never stores or logs GitHub's or Discord's response body or headers, or the webhook URL; only the expiry date appears in the message.
+- **Unexpected errors.** The `scheduled` handler catches any exception the check throws, writes the fixed line `token check: error` to the Worker log, with no response body, headers or token, and returns, so the next day's run tries again.
+- The check keeps no state: no D1 row, failure count or banner. Accepted: a check or alert path that keeps failing shows only in its log lines, which Workers Logs keeps for a limited time; the check repeats daily, so recent lines exist. README [Rotating the GitHub dispatch token](../README.md#rotating-the-github-dispatch-token) says when to read them.
 - Accepted: a rare rate-limit 403 raises a false "refused" alert that the next day's check clears.
 
 Re-encode settings, the starting point to tune in Phase 3:
@@ -152,7 +151,7 @@ The Worker presigns every R2 URL the browser uses: part PUT URLs expire after 1 
 
 ## Data model
 
-Four D1 tables hold everything; the heatmap is a query over `waffles`, not stored data.
+Three D1 tables hold everything; the heatmap is a query over `waffles`, not stored data.
 
 ```sql
 CREATE TABLE members (
@@ -199,16 +198,7 @@ CREATE TABLE sessions (
   member_id   TEXT NOT NULL REFERENCES members(discord_id),
   expires_at  TEXT NOT NULL
 );
-
-CREATE TABLE token_check (               -- one row, written by the daily token expiry check
-  id                    INTEGER PRIMARY KEY CHECK (id = 1),
-  consecutive_failures  INTEGER NOT NULL DEFAULT 0,
-  last_checked_at       TEXT NOT NULL,   -- UTC ISO-8601
-  last_alert            TEXT             -- the run's last post: sent | status code | network; NULL when it made none
-);
 ```
-
-The token expiry check upserts row 1 on every run (see [Transcode](#transcode)); until its first run there is no row and no banner.
 
 ### Waffle week
 
@@ -277,15 +267,11 @@ The app is a mobile-first PWA with five screens, installable from the home scree
 
 | Screen | Path | Contents |
 | --- | --- | --- |
-| This week | `/` | Who has posted this Waffle week (4 avatars, filled or empty), the latest Waffles, a large Upload button; the token expiry check banner when it is due; the member's own Unfinished uploads |
+| This week | `/` | Who has posted this Waffle week (4 avatars, filled or empty), the latest Waffles, a large Upload button; the member's own Unfinished uploads |
 | Upload | `/upload` | File picker (`accept="video/*"`), caption, week selector (this week / last week), progress bar with MB sent and time left |
 | Waffle | `/w/:id` | Player, member, week, caption, duration; Download original; Delete and Retry for the owner, and Post to Discord again while it has no Discord message |
 | Archive | `/archive` | Grid of poster cards grouped by week, newest first; filter by member and year |
 | Participation | `/participation` | The heatmap for a selected year |
-
-**Token expiry check banner**
-
-- When the token expiry check calls for it (the rule is in [Transcode](#transcode)), the This-week screen shows every member a fixed banner above its contents: "The daily GitHub token check has failed for 3 days; tell the admin." The page's server load reads the `token_check` row, and the banner has no dismiss.
 
 **Unfinished uploads**
 
@@ -394,7 +380,7 @@ Start the Claude Code session by giving it this doc and `CLAUDE.md`, which alrea
 - Removed members (rules: [Auth](#auth)): each effect of setting `active` to 0, including that setting it back to 1 does not let the old cookie back in and that signing in again shows "not a member" while `active` is 0.
 - The `Content-Disposition` name (rules: the paragraph after **Abort or Delete**): a display name holding CR, LF, quotes or slashes, a non-ASCII name, and a name left empty.
 - The heatmap query, and the heatmap year (rules: the `/api/heatmap` row of [API routes](#api-routes-all-under-the-app-origin)): on a day in early January before the year's first Wednesday, the current heatmap year is still the previous one, so the new calendar year gets 400 `bad_year`.
-- The token expiry check, beyond Phase 3's exit criteria (rules: **Unexpected errors** in [Transcode](#transcode)): a run that throws before or at its upsert, including a D1 upsert that throws while the catch's upsert succeeds, writes `token check: error`, adds 1 to `consecutive_failures` and at 3 posts the three-day message; a run whose upsert and the catch's upsert both throw leaves the count unchanged; a throw after a successful upsert keeps that result.
+- The token expiry check, beyond Phase 3's exit criteria (rules: **Unexpected errors** in [Transcode](#transcode)): a run that throws before any post writes only `token check: error`, posts nothing and returns without rethrowing.
 - The CI check and the validation script's tests from **Untrusted inputs**, and the hand-dispatch checks in Phase 3's exit criteria in [ROADMAP § Phases](../plans/ROADMAP.md#phases).
 
 ## Follow-on: NAS backup

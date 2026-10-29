@@ -196,18 +196,15 @@ expiring 13 days after the run and one each for a 401, a 403 and a 404, and post
 for a token expiring 15 days after the run, one expiring in a far-future year such as 2099,
 a missing expiry header, an unparseable one, a 5xx or a network error; the unparseable
 header, the 5xx and the network error each write their fixed `token check:` line to the
-Worker log, and a failed alert post writes its `token check alert failed:` line and adds 1
-to the count. The first run creates the
-`token_check` row. Three consecutive failed runs leave `token_check.consecutive_failures` at 3
-and post one "failed for 3 days" message, a fourth failed run posts no second one, a failed
-"failed for 3 days" post writes its log line and is not retried, and a passing run resets the
-count to 0. No `token check` line or alert holds the token, the webhook URL or a fixture
-response body (rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+Worker log, and a failed alert post writes its `token check alert failed:` line and is not
+retried. The 13-day, 15-day and 401 runs write no `token check` line. No `token check` line
+or alert holds the token, the webhook URL or a fixture response body (rules: **Token expiry
+check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the check through the
-`scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture)
-and updates the `token_check` row, while the same Worker still serves a page and an `/api`
-route. A
-hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
+`scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture),
+and with an invalid token it posts the invalid-token alert, while the same Worker still serves
+a page and an `/api` route.
+A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
 metacharacters (for example `$(id)`) fails before downloading anything, the validation
 script's output is only the fixed rejection message, and no callback arrives; a hand dispatch
 with `env=other` starts no run. A hand dispatch with `env=dev` and the ID of a Waffle
@@ -232,8 +229,8 @@ tests from **Untrusted inputs** pass in CI.
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week (with its token expiry check banner and Unfinished uploads), Archive and Waffle
-  screens and the player; delete and the Retry button.
+- This-week (with its Unfinished uploads), Archive and Waffle screens and the player; delete
+  and the Retry button.
 - The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
   works offline anyway, and a caching service worker risks a stale shell after a
   deploy and intercepted R2 range requests.
@@ -241,9 +238,7 @@ tests from **Untrusted inputs** pass in CI.
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row
 and all three R2 objects. Added to the home screen from Safari on iOS and Chrome on Android,
 the app opens standalone with its name and icon, and
-`navigator.serviceWorker.getRegistrations()` returns an empty list. With
-`token_check.consecutive_failures` set to 3, every member's This-week screen shows the token
-expiry check banner from [SPEC UI](../docs/SPEC.md#ui), and it is gone after a passing check.
+`navigator.serviceWorker.getRegistrations()` returns an empty list.
 An upload stopped mid-way shows under Unfinished uploads on its owner's This-week screen
 only and does not fill their avatar; Resume on the same phone finishes it, and Cancel upload removes it.
 

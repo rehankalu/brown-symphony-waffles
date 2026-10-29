@@ -37,10 +37,9 @@ The admin then:
 
 The next token expiry check stays quiet once the new token is in place.
 
-If members see "The daily GitHub token check has failed for 3 days" on the This-week screen,
-or the channel gets that message, read the `token check` lines in the Worker's logs
-(Cloudflare dashboard → the Worker → Logs) and fix what they name; the banner goes at the next
-passing check (see [SPEC Transcode](docs/SPEC.md#transcode)).
+When an upload fails with "its access token may have expired" but no alert came, read the
+`token check` lines in the Worker's logs (Cloudflare dashboard → the Worker → Logs) and fix
+what they name (see [SPEC Transcode](docs/SPEC.md#transcode)).
 
 ### Rotating the R2 keys
 
