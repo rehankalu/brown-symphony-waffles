@@ -88,9 +88,10 @@ by replacing it there. To rotate the production value, the admin:
    repository → Settings → Secrets and variables → Actions) with the same value.
 
 A run reads the repository secret when it starts, so any run that started before step 4 and
-reports after step 3 signs with the old value and is rejected. Its Waffle ends `failed` under
-the **Stuck jobs** rule in [SPEC Transcode](docs/SPEC.md#transcode), and its uploader presses
-Retry.
+reports after step 3 signs with the old value and is rejected: its log ends with
+`callback: 401 <waffle id>`. Its Waffle ends `failed` under the **Stuck jobs** rule in
+[SPEC Transcode](docs/SPEC.md#transcode), and its uploader presses Retry. If a run started
+after step 4 still ends with that line, the two copies differ; repeat steps 2 to 4.
 
 Never paste it anywhere else: not in the repo, an issue, a workflow log or Discord.
 
@@ -98,8 +99,8 @@ Never paste it anywhere else: not in the repo, an issue, a workflow log or Disco
 
 A Waffle that a run never reported back for fails with "The transcode did not report back"
 (the **Stuck jobs** rule in [SPEC Transcode](docs/SPEC.md#transcode)). The usual causes, such
-as a callback secret mismatch or an unreachable callback URL, show only in the repository's
-Actions tab. So the admin:
+as a callback secret mismatch or an unreachable callback URL, show in the repository's Actions
+tab, and a rejected callback also in the Worker log. So the admin:
 
 1. Once, turns on GitHub's notifications for failed workflow runs (GitHub → Settings →
    Notifications → System → Actions → "Only notify for failed workflows"). GitHub notifies
@@ -109,5 +110,14 @@ Actions tab. So the admin:
    sends nothing.
 2. When a member says a Retry failed again, searches the Actions tab for the Waffle's ID (the
    last part of its `/w/{id}` link), since each run's title is `transcode <id> (<env>)`, opens
-   the latest failed or cancelled one, sees which step failed, and fixes the cause. If no run names that ID, the run never started; check
-   [GitHub Status](https://www.githubstatus.com) for Actions. The uploader then presses Retry.
+   the latest failed or cancelled one, sees which step failed, and fixes the cause. A
+   `callback:` line names a callback failure (**Callback** in [SPEC
+   Transcode](docs/SPEC.md#transcode)). `callback: 401 <id>` is a rejected signature, usually a
+   secret mismatch (fix: [Rotating the callback secret](#rotating-the-callback-secret)) or a
+   runner clock more than 5 minutes off; `callback rejected: 401` lines in the Worker log
+   support it, though any unsigned request writes them too. `callback: retries exhausted ...`
+   means the Worker was unreachable or kept failing, so check `CALLBACK_BASE_URL` and the
+   Worker log. For a Waffle that still exists, `callback: 404 <id>` also means
+   `CALLBACK_BASE_URL` points at the wrong Worker. If no run names that ID, the run never
+   started; check [GitHub Status](https://www.githubstatus.com) for Actions. The uploader then
+   presses Retry.

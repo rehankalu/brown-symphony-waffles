@@ -183,3 +183,102 @@ Review 1's resolutions hold, and the 429 and 404-message-delete paths are handle
 - [x] **Fix the small reference and naming nits** (the NAS reference was already gone; log-line literals, the fixed three-day message and `token_check` keep their names) — `docs/SPEC.md:21`, `plans/ROADMAP.md:168`, `plans/META-PLAN.md:35`, `CLAUDE.md` (Where things live table) — Say "in the Follow-on: NAS backup section". Use "token expiry check" everywhere. Set Verification to "pending — set by the first feature with tests". Add "and operate" to the README row.
 
 6b: 0 misses (every line Review 1's diff touched in SPEC and ROADMAP has changed since eb7b1bd, so no Review 2 finding sits on unchanged Review 1 lines)
+
+## Review 3
+Generated: 2026-10-28 21:40
+Comparison: origin/docs/spec b0e089f0a6fa27f629a846f7c4fc11df2bfe1442..dd8f2d62f4b57974e0f68b54646b6f3ccbd6587a
+Verdict: **BLOCKED**
+
+Mode: full review (first non-docs path: `docs/SPEC.md`); Type Design not launched (no code type definitions).
+
+### Results by Reviewer
+
+#### 1. Safety & Security — PASS
+The HMAC callback, presigned-URL scoping, workflow-injection controls and auth all hold up. One minor gap:
+- (minor) `docs/SPEC.md:261`: the Discord Waffle post carries the member's caption without `allowed_mentions: {parse: []}`, so an `@everyone` in a caption pings the whole server.
+
+#### 2. Correctness — PASS
+No contradictions or API misuse. Cross-references resolve, and the part counts, week and streak rules, dispatch and ffmpeg usage are correct.
+- (minor) `docs/SPEC.md:104`: the stuck-jobs prose says "150 minutes after", but the statement uses a strict `<` and the test checks 149 vs 150, so a Waffle at exactly 150 minutes stays `processing`.
+- (minor) `plans/ROADMAP.md:44`: capability 5 says "52 weeks", but a heatmap year has 52 or 53.
+- (minor) `docs/SPEC.md:286`: the banner says "failed for 3 days" even on day 5, because it shows whenever `consecutive_failures >= 3`.
+
+#### 3. Simplicity & Conciseness — FAIL
+- (major) `docs/SPEC.md:117`: the token expiry check carries a second monitoring layer, made up of `token_check`, the failure counter, the three-day post, the catch-upsert accounting and the This-week banner, plus their tests. That is a lot for four users.
+- (major) `docs/SPEC.md:254`: the "Abort or Delete" paragraph runs about 900 words and lists every interleaving of complete, abort, the sweep and sibling completes. "Failed uploads" (lines 54-62) mirrors it.
+- (major) `docs/SPEC.md:74`: the workflow-lint CI check, its required status check or ruleset, and the committed validation script with its own tests are heavy hardening for a ULID input and a two-value choice input.
+- (minor) `docs/SPEC.md:98`: the callback retry ladder and the Racing runs accepted limitations restate each other.
+- (minor) `docs/SPEC.md:262`: the extras around the Discord claim lock (the Retry-After 10 s threshold and the 119/121 s test) could go, while the lock itself stays.
+- (minor) `docs/SPEC.md:39`: the Worker entry paragraph hand-describes Wrangler config keys that will drift.
+- (minor) `docs/SPEC.md:375`: Tests worth writing re-enumerates rules and exit criteria, against CLAUDE.md's rule that each fact has one home.
+- (minor) `docs/SPEC.md:344`: the Environments section repeats the rotation steps and the R2-key trade-off, and has a long paragraph on `.dev.vars`.
+
+#### 4. Test Coverage — PASS
+Most specified behaviours have matching tests or exit criteria. All gaps are minor:
+- (minor) `plans/ROADMAP.md:174`: no criterion checks that the deployed Cron is registered, or runs the check once against a real PAT's expiry header.
+- (minor) `README.md:20`: none of the rotation runbooks or the stuck-transcode runbook has a drill.
+- (minor) `docs/SPEC.md:352`: the domain cutover has no verification.
+- (minor) `docs/SPEC.md:74`: the CI check's patterns have no must-fail or must-pass fixture workflows.
+- (minor) `plans/ROADMAP.md:174`: there are no negative remux clips (10-bit H.264, non-AAC audio) and no CRF+2 case.
+- (minor) `docs/SPEC.md:375`: there is no test for a Delete with a NULL `discord_message_id`, or for a Discord message delete that fails.
+- (minor) `docs/SPEC.md:375`: several sweep and upload failure branches have no test entry.
+- (minor) `plans/ROADMAP.md:142`: Phase 2 has no resume, reload, cancel or near-5 GiB on-device check.
+- (minor) `plans/ROADMAP.md:237`: there are no banner cases for 0, 2, a missing row or a reload.
+- (minor) `docs/SPEC.md:375`: the callback's 299 s vs 301 s boundary, a dev-secret callback rejected in production, session expiry and renewal, and Retry's double tap are all untested.
+- (minor) `plans/ROADMAP.md:107`: Phase 0 doesn't read back the CORS and lifecycle rules.
+
+#### 5. Completeness & Cleanup — PASS
+There are no stale pending items, broken anchors or committed temp files, and all review items are ticked.
+- (minor) `README.md:98`: one line in the stuck-transcode runbook's step 2 runs past the wrap width.
+
+#### 6. Consistency & Style — PASS
+Env vars, secrets, columns, log literals and the "token expiry check" name are consistent across all docs.
+- (minor) `README.md:40`: "or the channel gets that message" reads as though the banner and the Discord text were identical.
+
+#### 7. Integration Risk — PASS
+- (minor) `docs/SPEC.md:72`: the GitHub calls don't state the `User-Agent`, `Accept` and `X-GitHub-Api-Version` headers. Without `User-Agent`, GitHub returns 403, which this design reads as a refused token.
+- (minor) `plans/ROADMAP.md:116`: no phase's scope covers creating the repository secrets or the PAT, and Phase 0's "secrets set" names secrets that don't exist yet.
+- (minor) `plans/ROADMAP.md:134`: Phase 2's `complete` would dispatch before a workflow exists (Phase 3), and Phase 3's token alerts use the webhook poster that Phase 5 builds.
+- (minor) `docs/SPEC.md:66`: the R2 CORS rule needs `AllowedHeaders` (content-type), and the spec doesn't say whether Worker-side R2 calls use the S3 API or a binding.
+- (minor) `docs/SPEC.md:261`: the Discord post lacks `allowed_mentions` (same as reviewer 1).
+- (minor) `docs/SPEC.md:39`: `src/worker.ts` imports a build output, so typecheck and Vitest fail on a fresh checkout.
+
+#### 8. Error Handling & Silent Failures — FAIL
+Most failure paths are handled well.
+- (major) `docs/SPEC.md:98`: a callback failure has no category, so a 401, a 400, a 404 and exhausted retries all look the same in the Actions tab. The Worker also logs nothing for a rejected callback, so a secret mismatch fails every transcode with no Worker-side trace.
+- (minor) `docs/SPEC.md:252`: Delete's 502 writes no Worker log line naming the failed R2 object.
+- (minor) `docs/SPEC.md:266`: a failed Discord message delete is neither logged nor listed as an accepted limitation.
+- (minor) `docs/SPEC.md:58`: a D1 error in the sweep is neither caught nor logged.
+- (minor) `docs/SPEC.md:113`: a missing expiry header silently disables the check.
+- (minor) `docs/SPEC.md:296`: the Upload screen's 10 s poll has no failed-poll behaviour, and nothing says what it shows when the Waffle turns `failed`.
+
+### To-Do: Required Changes
+
+- [x] **Make callback failures distinguishable and log rejected callbacks** — `docs/SPEC.md` (callback ~line 98, Tests worth writing), `README.md` (stuck-transcode runbook, callback-secret rotation) — Give the job's failure line a fixed callback category and the HTTP status (for example `callback: 401 <waffle id>`, `callback: retries exhausted <waffle id>`). Have the Worker write one fixed line per rejected callback (`callback rejected: 401` or `: 400`, with no body, headers or ID taken from an unverified request). Point the runbook and the rotation steps at those lines.
+- [ ] **Decide whether to trim the token expiry check's monitoring layer** — `docs/SPEC.md` (~lines 111-120, UI banner ~line 286, Data model `token_check`), `plans/ROADMAP.md` (Phases 3 and 4 exit criteria), `README.md:40` — Either keep the daily check with only its alert and log lines, dropping `token_check`, the counter, the three-day post, the catch-upsert accounting and the banner along with their tests, or keep them as decided (dd-261026-069, dd-261027-059). Record the decision.
+- [ ] **Condense the Abort or Delete race paragraph** — `docs/SPEC.md` (~line 254, Failed uploads ~lines 54-62) — State the invariants in a few lines: guarded UPDATE or DELETE on status, R2 before the row, a missing object counts as success, leftover originals are removed by hand. Drop the case-by-case branches, or decide to keep them and record why.
+- [ ] **Decide whether to simplify the workflow-injection CI check** — `docs/SPEC.md` (~line 74), `plans/ROADMAP.md` (Phase 3 exit criteria) — Either keep only the simple rules (inputs only through `env:`, no `set -x`, a ULID check at the start, no raw tool output in logs) and drop the custom lint with its required check and ruleset, or keep it as Review 2 asked and add must-fail and must-pass fixture workflows (`secrets.*` in `run:`, `actions/github-script` `script:`, `set -o xtrace`, and a compliant `env:` mapping).
+- [ ] **Suppress mentions on every webhook post** — `docs/SPEC.md` (~line 261, Tests worth writing) — Send `allowed_mentions: {parse: []}` on every Discord webhook post, and test that a caption holding `@everyone` pings nobody.
+- [ ] **State the GitHub API request headers** — `docs/SPEC.md` (~lines 72, 111) — Every GitHub call sends `User-Agent`, `Accept: application/vnd.github+json` and `X-GitHub-Api-Version`. Add a Phase 3 exit check that a real dispatch with a valid token returns 204 and that the real 2xx response carries the expiry header.
+- [ ] **Log a missing token expiry header** — `docs/SPEC.md` (~line 113) — Write `token check: no expiry header` to the Worker log on a 2xx with no header, without alerting.
+- [ ] **Fix the R2 CORS rule and name the Worker's R2 access method** — `docs/SPEC.md` (~line 66, Environments) — Add `AllowedHeaders: content-type`. State that every Worker-side R2 call (multipart create, abort, HEAD, delete, presign) goes through the S3 API with the bucket chosen by `TRANSCODE_ENV`.
+- [ ] **Schedule secret and PAT setup and the Phase 2 dispatch gap** — `plans/ROADMAP.md` (~lines 116, 134, Phase 3 scope) — Have Phase 0 name the Worker secrets it sets, put the repository secrets and the fine-grained PAT creation in Phase 3's scope, say Phase 2's `complete` stops at `processing` until Phase 3 adds dispatch, and say Phase 3's token alerts use a minimal webhook poster ahead of Phase 5.
+- [ ] **Keep the Worker entry out of typecheck and tests** — `docs/SPEC.md` (~line 39) — Say `src/worker.ts` is typed with a declaration shim (or excluded from svelte-check) and that Vitest never imports it. Cut the hand-described Wrangler keys down to what Phase 0 needs.
+- [ ] **Fix the stuck-jobs boundary** — `docs/SPEC.md` (~line 104, Tests worth writing) — Say "more than 150 minutes" and test 149 vs 151, or use `<=`.
+- [ ] **Say 52 or 53 weeks in capability 5** — `plans/ROADMAP.md:44` — Write "52 or 53 weeks by 4 members (one column per Waffle week in the selected year)".
+- [ ] **Drop the day count from the token banner** — `docs/SPEC.md:286`, `README.md:40`, `plans/ROADMAP.md` (Phase 4) — Word the banner without "3 days", or accept the wording. In README, say "this banner or the matching channel message".
+- [ ] **Log the remaining silent failure paths** — `docs/SPEC.md` (~lines 252, 266, 58) — Write `delete: r2 failed <waffle id> <poster|playback|original>` before Delete's 502. Log `delete: discord message delete failed <waffle id> <status|network>`, or list it as an accepted limitation. Wrap the sweep and log `upload sweep: error` on a D1 failure.
+- [ ] **Specify the Upload screen's poll failures** — `docs/SPEC.md` (~line 296) — Say a failed poll keeps polling and shows "Connection problem, still trying" after a few misses, and that a `failed` status shows the Waffle's error with Retry.
+- [ ] **Shorten the callback retry, Discord extras and Environments prose** — `docs/SPEC.md` (~lines 98, 101-102, 262, 268, 344-348, 375) — Merge the accepted-limitation bullets into one list. Consider dropping the Retry-After special case and its 119/121 s test. Link the rotation steps to README. Reduce Tests worth writing to the cases the rules don't spell out.
+- [ ] **Fill the remaining test and drill gaps** — `docs/SPEC.md` (Tests worth writing), `plans/ROADMAP.md` (Phases 0, 2, 3, 4, 5) — Add:
+  - Phase 0: read back both buckets' CORS rules (PUT allowed, ETag exposed, expected origins) and the 7-day abort lifecycle rule;
+  - Phase 2: on a phone, kill the connection mid-upload and resume, reload the tab and resume, cancel and see the row and the multipart upload gone, and upload one file near 5 GiB;
+  - Phase 3: the deployed Worker lists its Cron trigger; negative remux clips (10-bit H.264, non-AAC audio) that re-encode, and a CRF+2 case;
+  - the callback's 299 s vs 301 s boundary, a callback signed with the dev secret rejected in production, session 30-day expiry and renewal, and a double-tapped Retry dispatching once;
+  - banner cases for 0, 2, a missing row and a reload;
+  - a Delete with a NULL `discord_message_id` makes no Discord call, and a failed Discord delete doesn't block it;
+  - a sweep whose R2 abort fails, `NoSuchUpload` counted as success, a failed row insert after the multipart create, and a 409 `cancelled` still `uploading` after one minute;
+  - one end-to-end run of each rotation runbook, a failed run found by Waffle ID in the Actions tab, and a cutover check (sign in, upload to `ready` with the callback reaching the new origin, the Discord link opens, then disable workers.dev).
+- [ ] **Re-wrap the stuck-transcode runbook** — `README.md:98` — Re-wrap step 2 to the surrounding line width.
+
+6b: 0 misses (the only Review 3 findings on lines unchanged since 70a9e41 and inside Review 2's diff, `docs/SPEC.md` 238 at that head (Discord message) and 112 (expiry header), sit within ±5 of lines Review 2 reported, 239 and 114)

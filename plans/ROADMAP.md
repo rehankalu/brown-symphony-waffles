@@ -217,6 +217,10 @@ it expands empty), and then set to an `http://` URL, a hand dispatch with `env=p
 well-formed ULID that matches no Waffle fails before downloading anything, its log shows
 only the fixed message, and no callback arrives; the secret is then set back to its
 `https://` value and one upload's callback arrives (rule: **Dispatch target** in
+[SPEC Transcode](../docs/SPEC.md#transcode)). With the `TRANSCODE_CALLBACK_SECRET`
+repository secret set to a wrong value, an upload's run log ends with
+`callback: 401 <waffle id>`, the Worker log shows `callback rejected: 401` with no Waffle ID,
+and the Waffle stays `processing`; the secret is then set back (rule: **Callback** in
 [SPEC Transcode](../docs/SPEC.md#transcode)). The CI check fails on a branch that adds
 `${{ github.event.inputs.waffle_id }}` inside a `run: |` block, and on one that adds
 `set -ex`, and GitHub refuses to merge either branch into `main`. The validation script's
