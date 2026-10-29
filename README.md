@@ -30,9 +30,9 @@ not in the repo, an issue, a workflow log or Discord.
 
 ### Rotating the GitHub dispatch token
 
-`GITHUB_DISPATCH_TOKEN` expires. The Worker's daily token expiry check warns in the Discord channel
-before it does, or once GitHub refuses it (see [SPEC Transcode](docs/SPEC.md#transcode)).
-The admin then:
+`GITHUB_DISPATCH_TOKEN` expires. The Worker's daily token expiry check warns in the Discord
+channel before it does, or once GitHub refuses it (see
+[SPEC Transcode](docs/SPEC.md#transcode)). The admin then:
 
 1. In GitHub, regenerate the fine-grained token (Settings → Developer settings → Personal
    access tokens → Fine-grained tokens) with the repository access, permission and expiry

@@ -359,7 +359,7 @@ Every failure path has a fixed, ID-only log line or an actionable message. Catch
 - [x] **Trim the README's repeated and restated prose** — `README.md` (~lines 35, 62-68, 70, 95, 97-123) — State the never-paste-secrets warning once (or link to CLAUDE.md § Project rules). Cut step 2 of the stuck-transcode runbook to finding the run and reading its last line, with a link to SPEC's Callback for what each line means. Shorten step 5 of the R2 key rotation.
 - [x] **Consider merging the Failed uploads outcomes and the restated tests** — `docs/SPEC.md` (~lines 54-63, 376-397) — Merge the non-retryable upload failures into one "cancel and upload again" outcome, and keep in Tests worth writing only the cases the rules don't spell out. Or keep both as decided and say so. (asked: dd-261029-023)
 - [x] **Fill the remaining drill gaps** — `plans/ROADMAP.md` (Phases 1, 4, 5), `docs/SPEC.md` (Tests worth writing) — Phase 1: a guild member who isn't in `members` is refused, and a session survives a redeploy. Phase 4: the Retry button reaches `ready` for its owner and is absent for others, and a Delete repeated after an injected R2 failure finishes. Phase 5: an `@everyone` caption pings nobody in the real channel, and deleting a Waffle after the webhook was revoked still deletes it. SPEC: a table-driven test of the streak and Best-streak calculation.
-- [ ] **Optionally re-flow README line 24** — `README.md:24` — Re-wrap it to the surrounding Operations width.
+- [x] **Optionally re-flow README line 24** — `README.md:24` — Re-wrap it to the surrounding Operations width.
 
 ### Missed Findings
 
