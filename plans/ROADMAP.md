@@ -41,8 +41,9 @@ component.
    Phase 5's exit criteria.
 4. **Browse and play every Waffle, filtered by member and week.** *Acceptance:* Phase 4's
    exit criteria.
-5. **Show a participation heatmap: 52 weeks by 4 members for the selected year.**
-   *Acceptance:* Phase 6's exit criteria.
+5. **Show a participation heatmap: 52 or 53 weeks by 4 members (one column per
+   [Waffle week](../CLAUDE.md#project-rules) in the selected year).** *Acceptance:* Phase 6's
+   exit criteria.
 6. **Restrict access to members of the Discord server.** *Acceptance:* Phase 1's exit
    criteria.
 
