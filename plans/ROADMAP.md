@@ -367,12 +367,26 @@ past year shows "Best YYYY streak" instead of the current streak (rules: SPEC
 
 ## Sequencing rationale
 
-<!-- Phase-level dependencies only. Feature-level chains and couplings live in META-PLAN. -->
+<!-- Phase-level dependencies, launch and the domain cutover only. Feature-level chains and couplings live in META-PLAN. -->
 
 `0 → 1 → 2 → 3 → {4, 5} → 6`. The riskiest parts (large phone uploads, then transcode time
 and size) come first. 4 before 5 is a preference (the Discord link lands on the Waffle
 screen), not a hard dependency: 5 needs only Phase 3's `ready` state. Launch follows Phase 6:
-point the webhook at the real channel, run two Wednesdays alongside WhatsApp, then retire it.
+the webhook swap below, two Wednesdays alongside WhatsApp, then retiring the WhatsApp group.
+
+**Webhook swap.** First delete the prototype's test Waffles, since the archive starts on
+launch day and the test webhook can still delete their messages; a `ready` test Waffle left
+unposted would otherwise post to the group through Post to Discord again. Then create a
+webhook in the real channel and run `npx wrangler secret put DISCORD_WEBHOOK_URL`, pasting
+its URL at the prompt; this updates the deployed Worker. The real webhook never goes in a
+`.dev.vars`, which keeps the test channel's, or anywhere else: not in the repo, an issue, a
+workflow log or Discord. The token alerts post through the same secret, so they move to the
+real channel with it (rule: [SPEC Transcode](../docs/SPEC.md#transcode)). A Waffle kept from
+before the swap keeps its message in the test channel, which the new webhook cannot delete,
+so deleting it logs the expected `delete: discord message delete failed` line and still
+deletes it (rule: [SPEC Discord notification](../docs/SPEC.md#discord-notification)).
+**Swap check:** a test Waffle uploaded after the swap posts in the real channel, and
+deleting it removes that message.
 
 The [domain cutover](../docs/SPEC.md#domain-cutover-after-the-prototype-is-proven) is not a
 phase; it runs once the prototype is proven, since only the custom domain can carry the

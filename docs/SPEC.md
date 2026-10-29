@@ -377,7 +377,7 @@ Build in seven phases, Phase 0 to Phase 6. Each phase's goal, scope and exit cri
 
 Start the Claude Code session by giving it this doc and `CLAUDE.md`, which already records the stack and the Waffle-week rule, and ask it to fill in CLAUDE.md's folder layout and commands (`dev`, `test`, `deploy`, `db:migrate`) as Phase 0 creates them.
 
-**Launch:** point the webhook at the real channel, use it for two Wednesdays alongside WhatsApp, then retire the WhatsApp group. Domain cutover can follow at any point after.
+**Launch:** its steps, from the webhook swap to retiring the WhatsApp group, are in [ROADMAP § Sequencing rationale](../plans/ROADMAP.md#sequencing-rationale). Domain cutover can follow at any point after.
 
 **Tests worth writing.** Each area below tests every outcome its rules state; the list names those rules and adds only the cases they do not spell out (boundaries, examples and races).
 - The Waffle-week function: the cases in the Waffle week rule in [CLAUDE.md § Project rules](../CLAUDE.md#project-rules).

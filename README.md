@@ -19,6 +19,9 @@ _Not set up yet._
 
 ## Operations
 
+At launch the admin points `DISCORD_WEBHOOK_URL` at the real channel; the steps are under
+**Webhook swap** in [ROADMAP § Sequencing rationale](plans/ROADMAP.md#sequencing-rationale).
+
 ### Rotating the GitHub dispatch token
 
 `GITHUB_DISPATCH_TOKEN` expires. The Worker's daily token expiry check warns in the Discord channel
@@ -47,9 +50,12 @@ what they name (see [SPEC Transcode](docs/SPEC.md#transcode)).
 Worker, the workflow and every `.dev.vars` share (see
 [SPEC Environments](docs/SPEC.md#environments)), so a leaked copy, including a laptop's
 `.dev.vars`, is a reason to rotate at once. A leaked `.dev.vars` also exposes the dispatch
-token (rotate it with the steps above), `DISCORD_CLIENT_SECRET` and `DISCORD_WEBHOOK_URL`:
-reset those in the Discord developer portal and the channel's webhook settings, then replace
-them with `npx wrangler secret put` and in every `.dev.vars`. The admin:
+token (rotate it with the steps above), `DISCORD_CLIENT_SECRET` and the test channel's
+`DISCORD_WEBHOOK_URL`: reset those in the Discord developer portal and the test channel's
+webhook settings, then replace them in every `.dev.vars` and with `npx wrangler secret put`.
+After launch the Worker holds the real channel's webhook instead (see the pointer above), so
+put only the new client secret there and leave its webhook alone unless that leaked too.
+The admin:
 
 1. In the Cloudflare dashboard (R2 → Manage API tokens), creates a new token with the
    permission and buckets [SPEC Environments](docs/SPEC.md#environments) names.
