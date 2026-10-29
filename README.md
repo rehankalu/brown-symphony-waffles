@@ -117,8 +117,7 @@ tab, and a rejected callback also in the Worker log. So the admin:
    support it, though any unsigned request writes them too. `callback: retries exhausted ...`
    means the Worker was unreachable or kept failing, so check `CALLBACK_BASE_URL` and the
    Worker log. `callback: 404 <id>` for a deleted Waffle is the Worker's `no_waffle` 404, after
-   which the run deleted its playback copy and poster. For a Waffle that still exists it is
-   a 404 without that marker, so `CALLBACK_BASE_URL` points at the wrong Worker or host, and
-   the run deleted nothing. If no run names that ID, the run never
-   started; check [GitHub Status](https://www.githubstatus.com) for Actions. The uploader then
-   presses Retry.
+   which the run deleted its playback copy and poster. For a Waffle that still exists it is a
+   404 without that marker, so `CALLBACK_BASE_URL` points at the wrong Worker or host, and the
+   run deleted nothing. If no run names that ID, the run never started; check [GitHub
+   Status](https://www.githubstatus.com) for Actions. The uploader then presses Retry.

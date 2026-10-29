@@ -279,6 +279,6 @@ Most failure paths are handled well.
   - a Delete with a NULL `discord_message_id` makes no Discord call, and a failed Discord delete doesn't block it;
   - a sweep whose R2 abort fails, `NoSuchUpload` counted as success, a failed row insert after the multipart create, and a 409 `cancelled` still `uploading` after one minute;
   - one end-to-end run of each rotation runbook, a failed run found by Waffle ID in the Actions tab, and a cutover check (sign in, upload to `ready` with the callback reaching the new origin, the Discord link opens, then disable workers.dev).
-- [ ] **Re-wrap the stuck-transcode runbook** — `README.md:98` — Re-wrap step 2 to the surrounding line width.
+- [x] **Re-wrap the stuck-transcode runbook** (item 1 already kept every line within the wrap width; step 2's tail lines re-flowed to fill it, wording unchanged) — `README.md:98` — Re-wrap step 2 to the surrounding line width.
 
 6b: 0 misses (the only Review 3 findings on lines unchanged since 70a9e41 and inside Review 2's diff, `docs/SPEC.md` 238 at that head (Discord message) and 112 (expiry header), sit within ±5 of lines Review 2 reported, 239 and 114)
