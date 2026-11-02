@@ -32,32 +32,26 @@ Discord caps free uploads at 20 MB.
 The numbered capabilities define "done". Each is a user-observable outcome, never a
 component.
 
-1. **Upload a Waffle from a phone browser.** Up to about 2 GB and 15 minutes, without an app
-   install. *Acceptance example:* each member uploads a real 10-minute Waffle from their own
-   phone on mobile data and Wi-Fi, and the object in R2 is byte-identical to the original
-   (same size and SHA-256).
+1. **Upload a Waffle from a phone browser.** Up to 5 GiB (about 10 minutes of 4K60), without an
+   app install. *Acceptance:* Phase 2's exit criteria.
 2. **Keep the original and produce one playback copy.** H.264/AAC MP4 at the original
    resolution and frame rate, visually close to the source, capped at 1080p when that copy
-   would exceed 1.5× the original's size. *Acceptance example:* an iPhone HDR clip, an iPhone
-   SDR clip and an Android clip each play correctly in Safari on iOS, Chrome on Android and
-   Chrome or Edge on Windows, and a 4K clip over the threshold comes out at 1080p.
-3. **Post to the Discord Waffles channel when a Waffle is ready to watch.** *Acceptance
-   example:* one message appears per ready Waffle, in a test channel first, with a working
-   link, and the message is deleted with the Waffle.
-4. **Browse and play every Waffle, filtered by member and week.** *Acceptance example:*
-   seeking works mid-video on a phone, and deleting a Waffle removes the row and all three
-   R2 objects.
-5. **Show a participation heatmap: 52 weeks by 4 members for the selected year.**
-   *Acceptance example:* the grid matches the archive for seeded test data, including a week
-   with two Waffles from one member and a Waffle filed to the previous week.
-   <decision: does a member's current streak count the in-progress week before they have posted in it>
-6. **Restrict access to members of the Discord server.** *Acceptance example:* all four
-   members can sign in from their phones, and a Discord account outside the server cannot.
+   would exceed 1.5× the original's size. *Acceptance:* Phase 3's exit criteria.
+3. **Post to the Discord Waffles channel when a Waffle is ready to watch.** *Acceptance:*
+   Phase 5's exit criteria.
+4. **Browse and play every Waffle, filtered by member and week.** *Acceptance:* Phase 4's
+   exit criteria.
+5. **Show a participation heatmap: 52 or 53 weeks by 4 members (one column per
+   [Waffle week](../CLAUDE.md#project-rules) in the selected year).** *Acceptance:* Phase 6's
+   exit criteria.
+6. **Restrict access to members of the Discord server.** *Acceptance:* Phase 1's exit
+   criteria.
 
 ### Out of scope
 
 - Importing historical Waffles from WhatsApp. The archive starts on launch day.
-- NAS backup: a documented follow-on after launch, not MVP.
+- NAS backup: a follow-on after launch, not MVP (see
+  [SPEC Follow-on: NAS backup](../docs/SPEC.md#follow-on-nas-backup)).
 - Comments, reactions or editing in the app. Discussion stays in Discord.
 - Adaptive streaming (HLS/DASH), multiple renditions, or a native mobile app.
 
@@ -85,21 +79,23 @@ reason. Verified code facts that must not regress are META-PLAN Standing invaria
 command-level operating rules (exact backup commands, test commands) belong in CLAUDE.md /
 README. Keep each item to one or two sentences. -->
 
-- **Public repo, private data.** Videos and member data live only in R2 and D1; Actions logs
-  carry Waffle IDs only and every credential is a secret. *Why:* the repo is public so
-  Actions minutes are free, which makes its logs public too.
-- **Video bytes never pass through the Worker.** Uploads and playback use presigned R2 URLs.
-  *Why:* Worker request limits, and R2 egress is free.
-- **The original is kept untouched.** *Why:* the playback copy can be regenerated; the
-  original cannot.
-- **One group time zone.** Waffle weeks run Wednesday to Tuesday in America/New_York
-  (`GROUP_TZ`). *Why:* the cutoff is informal and one member in CT does not justify per-member
-  weeks.
-- **Accepted risk: <name>.** <The risk the project deliberately carries, and the trigger
-  that makes it no longer acceptable.>
+- **The project rules.** The rules in [CLAUDE.md § Project rules](../CLAUDE.md#project-rules)
+  shape every phase. *Why each:*
+  - Waffle week: the cutoff is informal, and one member in CT does not justify per-member weeks.
+  - Public repo: Actions minutes are free on a public repo, which makes its logs public too.
+  - Video bytes skip the Worker: Worker request limits, and R2 egress is free.
+  - Original untouched: the playback copy can be regenerated; the original cannot.
+- **Accepted risk: R2 holds the only copy.** Until the NAS backup exists, an R2 account
+  problem or a deleted Waffle loses its original for good. *Trigger:* retiring the WhatsApp
+  group at launch ends the de facto backup, so the NAS follow-on starts then.
 - **External dependencies.** Cloudflare (Workers, D1, R2), Discord (OAuth and the channel
-  webhook) and GitHub Actions (transcoding). <what happens if each one is unavailable>
-- <decision: package manager: npm or pnpm>
+  webhook) and GitHub Actions (transcoding). If Cloudflare is down, the whole app is down. If
+  Discord is down, new sign-ins fail ([SPEC Auth](../docs/SPEC.md#auth)) but existing sessions
+  work. How uploads, Discord posts and transcodes recover:
+  [SPEC Upload](../docs/SPEC.md#upload), [SPEC Discord notification](../docs/SPEC.md#discord-notification)
+  and [SPEC Transcode](../docs/SPEC.md#transcode).
+- **npm is the package manager.** *Why:* it ships with Node, is what Wrangler and SvelteKit
+  document, and pnpm's install-speed gains do not matter for one small app.
 
 ## Phases
 
@@ -114,11 +110,25 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
 **Goal.** Stand up the empty app and every Cloudflare resource the later phases build on.
 **Advances capabilities:** none directly (foundation for all).
 
-- Repo and a SvelteKit app deployed to `workers.dev`.
+- Repo and a SvelteKit app deployed to `workers.dev`, served through the custom Worker entry
+  (`src/worker.ts`, passing `fetch` through to the adapter), the Wrangler config's `main` and
+  its `[build] command`, as in **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
+  The same config sets `[observability] enabled = true`, so the Workers Logs that later exit
+  criteria read, from Phase 1's `auth callback:` lines on, are kept (rule: **Token expiry
+  check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 - D1 database with the schema and migrations.
-- R2 buckets with CORS and the lifecycle rule; secrets set.
+- R2 buckets with CORS and the lifecycle rule, and the R2 API token, with the Worker secrets
+  `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` from it and `R2_ACCOUNT_ID` (see
+  [SPEC Environments](../docs/SPEC.md#environments)). Each later phase sets the secrets and
+  `[vars]` it first needs, in the Worker and in `.dev.vars` as that section describes.
 
-**Exit criteria.** The deployed app returns a page, and `db:migrate` runs locally and remotely.
+**Exit criteria.** The deployed app returns a page through the custom Worker entry, Workers
+Logs in the dashboard shows that request after it has finished, and `db:migrate` runs locally
+and remotely. Read back from R2 (dashboard or Wrangler), each bucket's CORS rule allows `PUT`
+and the `content-type` header from its expected origins (the workers.dev origin on `waffles`,
+the local `APP_ORIGIN` on `waffles-dev`) and exposes `ETag`, and its lifecycle rule aborts
+multipart uploads left incomplete for 7 days (rules: [SPEC Upload](../docs/SPEC.md#upload) and
+[Storage layout](../docs/SPEC.md#storage-layout-r2-bucket-waffles-private)).
 
 **Why here.** Every later phase deploys to this Worker and reads this schema and these buckets.
 
@@ -127,9 +137,29 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
 **Goal.** Only the four members can get in. **Advances capabilities:** 6.
 
 - Discord OAuth, guild and `members` checks, sessions, the four members seeded.
+- The cross-site Origin and JSON checks and the response headers from
+  [SPEC Auth](../docs/SPEC.md#auth), as a server hook that every later route passes through.
+- The Discord application, with the Worker secrets `DISCORD_CLIENT_ID`,
+  `DISCORD_CLIENT_SECRET` and `DISCORD_GUILD_ID`.
+- The `APP_ORIGIN` var and both Discord redirect URIs, as in
+  [SPEC Environments](../docs/SPEC.md#environments).
 
 **Exit criteria.** All four can sign in from their phones, and a Discord account outside the
-server cannot.
+server cannot. Once in the server, that account (the admin's second account, joined for the check
+and removed after; no seeded `members` row is touched) still has no row in `members`, so it sees
+the "not a member" page and gets no session (rule: [SPEC Auth](../docs/SPEC.md#auth)). A member
+signed in before a redeploy of the Worker is still signed in after it. Opening `/auth/callback`
+with a made-up `code` and `state`, without starting sign-in first, shows the "Sign-in failed"
+page, not "not a member", sets no session cookie and writes `auth callback: state mismatch` to
+the Worker log; tests cover the other callback failures, the cookie attributes, the fresh session
+token on each sign-in and logout (rules: [SPEC Auth](../docs/SPEC.md#auth)). On the deployed app,
+the browser's dev tools show the session cookie with the attributes SPEC Auth names, and a page
+response with both of its response headers. There is no sign-out button yet, so the admin copies
+their session cookie's value from dev tools and sends `POST /auth/logout` with it by hand (with no
+`Origin` header); a page requested with the same value then redirects to sign-in. The value is
+never pasted into an issue, a commit or a log. A `POST /auth/logout` with a valid session cookie
+and an `Origin` of another site gets 403 `bad_origin` and the session still works; each later
+route's cross-site and signed-out cases follow with the phase that builds it (Phases 2 to 6).
 
 **Why here.** Every `/api` route but the transcode callback requires a session.
 
@@ -137,10 +167,43 @@ server cannot.
 
 **Goal.** A member gets a full-size Waffle from their phone into R2 intact. **Advances capabilities:** 1.
 
-- Multipart upload to R2 with presigned parts, progress, retry, resume, abort.
+- Multipart upload to R2 with presigned parts, progress, retry, resume, abort, the
+  failed-upload messages and the abandoned-upload sweep, as in
+  [SPEC Upload](../docs/SPEC.md#upload).
+- The `TRANSCODE_ENV` and `GROUP_TZ` vars, as in
+  [SPEC Environments](../docs/SPEC.md#environments): the Worker's first R2 calls need
+  `TRANSCODE_ENV`, and `week_start` first needs `GROUP_TZ`.
+- `GET /api/waffles` and `GET /api/waffles/:id` as in
+  [SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin), without the lazy
+  check from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), which Phase 3
+  adds; tested through the API. Phase 4 builds its screens on them.
+- The Upload screen up to its `processing` poll, and the owner's Unfinished uploads on the
+  This-week screen, as in [SPEC UI](../docs/SPEC.md#ui). The Upload screen's `ready` link
+  and `failed` Retry come with Phase 4, as does the rest of the This-week screen.
+- `complete` stops at `processing`: it sets `status` and `processing_at` and dispatches
+  nothing until Phase 3 adds the dispatch, and its dispatch tests land there. Once Phase 3
+  deploys, Phase 2's Waffles turn `failed` under **Stuck jobs** in
+  [SPEC Transcode](../docs/SPEC.md#transcode), and each owner's Retry recovers them.
 
 **Exit criteria.** Each member uploads a real 10-minute Waffle from their own phone on mobile
 data and Wi-Fi, and the object in R2 is byte-identical to the original (size and SHA-256).
+On a phone, an upload whose connection is cut mid-way shows under Unfinished uploads on its
+owner's This-week screen only and finishes with Resume, one whose tab is reloaded finishes
+when the same file is picked again, and Cancel upload removes the row and the multipart
+upload (an S3 `ListMultipartUploads` call, with the R2 keys read from environment variables
+and pasted nowhere, no longer lists it); one file close to 5 GiB also passes the size and
+SHA-256 check. After `complete`, the Upload screen shows `processing` and polls, and with
+the network cut for 3 polls it shows its connection note. Under `wrangler dev`, an
+`uploading` row whose `uploaded_at` is set back 8 days is gone after a `GET /api/waffles`,
+with its multipart upload aborted, and one set back just under 7 days stays. These pass
+their cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409
+`cancelled` re-read, the upload checks, the cross-site checks on the upload routes, the
+signed-out checks on the upload and read routes, a removed member's old cookie on
+`POST /api/uploads`, the abandoned-upload sweep, failed and retried uploads, `uploading`
+Waffles, the Waffle list filters, the Upload screen's polling (its 404 and 401 included), the
+`Content-Disposition` name and the dispatch target's bucket cases for the upload and read
+routes and the sweep (`complete`'s R2 calls only; its dispatch follows in Phase 3). Phase 2's
+test Waffles stay until Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -148,14 +211,146 @@ data and Wi-Fi, and the object in R2 is byte-identical to the original (size and
 
 **Goal.** Every uploaded Waffle gets a playback copy every device can play. **Advances capabilities:** 2.
 
-- GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
+- GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, the job's callback.
+- The callback route as in **Callback** in [SPEC Transcode](../docs/SPEC.md#transcode),
+  applying only the guarded `ready` and `failed` `UPDATE`s: it takes no Discord claim and posts
+  nothing until Phase 5 adds the Waffle post. A Waffle that reaches `ready` before then stays
+  unposted, and once Phases 4 and 5 are both deployed its owner sees Post to Discord again on
+  the Waffle screen.
+- The fine-grained PAT, created as in [SPEC Transcode](../docs/SPEC.md#transcode); the
+  Worker secrets `GITHUB_DISPATCH_TOKEN`, `TRANSCODE_CALLBACK_SECRET` and
+  `DISCORD_WEBHOOK_URL` (the test channel's webhook); the `GITHUB_REPO` and
+  `GITHUB_WORKFLOW` vars (the latter matching the workflow's file name); and the repository
+  secrets the workflow needs, `R2_ACCOUNT_ID` among them, as listed in
+  [SPEC Environments](../docs/SPEC.md#environments).
+- Once the workflow-file read in the exit criteria passes, merge the workflow file to `main`
+  before any Phase 3 dispatch check, and each tuning change before dispatching it (rule:
+  **Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 - Record each test clip's original size, playback size and encode time; tune CRF, preset and
   the 1.5× cap threshold from them.
-- <decision: credential the Worker uses for repository_dispatch: fine-grained PAT or GitHub App token>
+- `complete` and Retry start the workflow with `workflow_dispatch`; the dispatch token, the
+  daily token expiry check and rejected dispatches are as in
+  [SPEC Transcode](../docs/SPEC.md#transcode).
+  *Why `workflow_dispatch`:* it needs only the Actions: write permission SPEC names, while
+  `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
+  token change code the workflow runs and expose its secrets, the R2 keys among them.
+- The token expiry check's `scheduled` handler, added to Phase 0's custom Worker entry as in
+  **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture), and the Wrangler
+  config's `[triggers] crons` entry that calls it (rule: **Token expiry check** in
+  [SPEC Transcode](../docs/SPEC.md#transcode)).
+- A minimal webhook poster for the token alerts, ahead of Phase 5: one post to
+  `DISCORD_WEBHOOK_URL` with the `allowed_mentions` rule from
+  [SPEC Discord notification](../docs/SPEC.md#discord-notification). Phase 5 builds the
+  Waffle posts on it.
+- The owner-only `POST /api/waffles/:id/retry` route, tested through the API; Phase 4 adds
+  its buttons.
+- The lazy check from **Stuck jobs** in [SPEC Transcode](../docs/SPEC.md#transcode), added
+  to Phase 2's `GET /api/waffles` and `GET /api/waffles/:id` and tested through the API.
+- The workflow follows the rules of **Untrusted inputs**, **Workflow permissions** and
+  **Untrusted file** in [SPEC Transcode](../docs/SPEC.md#transcode), its input check among
+  them.
 
-**Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip each play
-correctly in Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip
-over the threshold comes out at 1080p.
+**Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
+from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
+Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip over the
+threshold comes out at 1080p. A portrait 4K HEVC iPhone clip with a rotation flag (the
+re-encode path) plays upright in the same browsers, and its playback copy is portrait with no
+rotation flag. Before these copies are judged, ffprobe of the stored originals shows the HDR
+clip's HLG or PQ `color_transfer` and the portrait clip's rotation flag, so that no picker
+converted them on the way up. For each clip that reaches `ready`, ffprobe of the original and
+the playback copy gives the same displayed width and height (rotation applied), the same
+`avg_frame_rate` to within 1% and the same duration to within 0.1 s, except the width and
+height of a copy the size cap scaled down. The HDR clip's
+playback copy reports `color_transfer` `bt709` and its Waffle stores `is_hdr = 1`, while the
+SDR clips store `is_hdr = 0` (rules: **HDR is tone-mapped to SDR** and **Resolution is kept**
+in [SPEC Transcode](../docs/SPEC.md#transcode)). An H.264 SDR clip with no audio stream takes
+the remux path and its playback copy has no audio track, and an Android clip that ffprobe
+reports as `yuvj420p` takes the remux path and its playback copy keeps the original's `pix_fmt` and
+`color_range` (rule: the remux path in [SPEC Transcode](../docs/SPEC.md#transcode)). A
+10-bit H.264 clip and an H.264 clip with MP3 audio take the re-encode path, and a clip at
+1080p or below whose re-encoded copy exceeds 1.5× the original (for example an HEVC noise
+clip encoded at a low bitrate) is encoded again 2 CRF higher at its own resolution (rule: the
+size cap in [SPEC Transcode](../docs/SPEC.md#transcode)). A
+corrupt file ends `failed` with `probe:` or `encode:` and the first non-empty line of the
+tool's stderr as its stored error, while the run's log shows only the fixed line naming the
+Waffle ID and category (rule: **Failure output** in
+[SPEC Transcode](../docs/SPEC.md#transcode)). The no-audio and corrupt clips are made with
+ffmpeg (for example with `-an`, and by truncating a file), as are the 10-bit, MP3 and noise
+clips, and no test clip is committed. An `.m4v` clip made with ffmpeg reaches `ready`,
+while a Matroska file and an `ffconcat version 1.0` file naming another file, each renamed
+to `clip.mp4`, end `failed` with a `probe:` error and start no ffmpeg (rule: **Untrusted
+file** in [SPEC Transcode](../docs/SPEC.md#transcode)). A 0.5-second 640x360 clip made with
+ffmpeg reaches `ready` with a poster exactly 640 px wide, a one-frame clip and a clip whose
+0.3-second video track ends before its 5 seconds of audio each reach `ready` with a non-empty
+poster, and the portrait clip's poster is portrait (rule: the poster step in
+[SPEC Transcode](../docs/SPEC.md#transcode)).
+With an invalid dispatch token, a completed upload ends `failed` with the token message from
+**Rejected dispatch** in [SPEC Transcode](../docs/SPEC.md#transcode), the token appears in
+no stored error, API response or Worker log, and the original stays in R2. After a rejected dispatch, another
+member's Retry is refused while the Waffle is still `failed`, leaving it `failed` with
+nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Waffle whose
+`processing_at` is backdated past 150 minutes reads as `failed` with the **Stuck jobs**
+message from [SPEC Transcode](../docs/SPEC.md#transcode) in both GET routes, and a `ready`
+Waffle with the same `processing_at` stays `ready`. The Retry route passes its cross-site
+and signed-out cases, and `complete` and Retry pass the dispatch target's cases, in
+[SPEC Tests worth writing](../docs/SPEC.md#build-plan).
+With fixture GitHub responses and a dummy token, the token expiry check sends the GitHub
+request headers from [SPEC Transcode](../docs/SPEC.md#transcode) and posts one alert for a token
+expiring 13 days after the run and one each for a 401, a 403 and a 404, and posts nothing
+for a token expiring 15 days after the run, one expiring in a far-future year such as 2099,
+a missing expiry header, an empty one, an unparseable one, a 5xx or a network error; the
+missing and empty headers, the unparseable one, the 5xx and the network error each write
+their fixed `token check:` line to the Worker log (`token check: no expiry header` for the
+missing and empty ones), and a failed alert post writes its `token check alert failed:` line
+and is not retried. The 13-day, 15-day and 401 runs write no `token check` line. No
+`token check` line or alert holds the token, the webhook URL or a fixture response body
+(rules: **Token expiry check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+Under `wrangler dev --test-scheduled`, a request to `/__scheduled` runs the check through the
+`scheduled` handler of **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture),
+and with an invalid token it posts the invalid-token alert, while the same Worker still serves
+a page and an `/api` route. The deployed Worker's triggers (dashboard or Wrangler) list the
+`0 14 * * *` Cron Trigger.
+With the valid token, a deployed upload's `complete` gets GitHub's 204: a
+`transcode <waffle id> (prod)` run appears in the Actions list and the Waffle stays
+`processing` with no `error`. The admin then sends the token expiry check's request by hand
+from a local shell with `curl -sI` and the same four headers. The token is read from an
+environment variable, never typed into a command, and the `Authorization` header reaches curl
+either on stdin through `-K -` (printed by the `printf` builtin) or from a file outside the
+repo, mode 600 and deleted afterwards, through `-H @file`, so the token never appears in a
+process's arguments or the shell history. The output is filtered to the
+`github-authentication-token-expiration` line, which must be present; the token and the other
+headers are pasted nowhere (rule: the GitHub request headers in
+[SPEC Transcode](../docs/SPEC.md#transcode)).
+A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
+metacharacters (for example `$(id)`) fails before downloading anything, the input check's
+output is only the fixed rejection message, and no callback arrives; a hand dispatch
+with `env=other` starts no run. A hand dispatch with `env=dev` and the ID of a Waffle
+uploaded under `wrangler dev` writes its playback copy to `waffles-dev` and sends no
+callback. While no Waffle is `processing`, with the `CALLBACK_BASE_URL` secret deleted (so
+it expands empty), and then set to an `http://` URL, a hand dispatch with `env=prod` and a
+well-formed ULID that matches no Waffle fails before downloading anything, its log shows
+only the fixed message, and no callback arrives; the secret is then set back to its
+`https://` value and one upload's callback arrives. With the `TRANSCODE_CALLBACK_SECRET`
+repository secret deleted, the same hand dispatch also fails before downloading anything
+with only the fixed message and sends no callback; the secret is then set back (rule:
+**Dispatch target** in [SPEC Transcode](../docs/SPEC.md#transcode)). With the
+`TRANSCODE_CALLBACK_SECRET` repository secret set to a wrong value, an upload's run log ends
+with `callback: 401 <waffle id>`, the Worker log shows `callback rejected: 401` with no Waffle ID,
+and the Waffle stays `processing`; the secret is then set back (rule: **Callback** in
+[SPEC Transcode](../docs/SPEC.md#transcode)). The admin finds that run by its Waffle ID with
+README [Transcodes that did not report back](../README.md#transcodes-that-did-not-report-back).
+A callback signed by hand with the dev-only `TRANSCODE_CALLBACK_SECRET` (read from an
+environment variable and pasted nowhere), a current timestamp and a well-formed ULID that
+matches no Waffle gets 401, not the `no_waffle` 404, from the deployed Worker, which logs
+`callback rejected: 401`. Before launch, while no Waffle is `processing` and members are not
+uploading, the admin runs each rotation runbook in README
+[Operations](../README.md#operations) once end to end (dispatch token, R2 keys, callback
+secret), and an upload after each reaches `ready`. A read of the workflow file before each
+merge finds no inline interpolation of an input or secret, no shell tracing, top-level
+`permissions: contents: read` with no job-level `permissions:`, every `uses:` pinned to a
+full commit SHA, and `-protocol_whitelist file -f mov` with no `-enable_drefs` on every
+ffprobe and ffmpeg command that reads `original` (rules: **Untrusted inputs**, **Workflow
+permissions** and **Untrusted file** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 
 **Why here.** Transcode time and size are the second-biggest risk and need real uploads to test.
 
@@ -163,22 +358,65 @@ over the threshold comes out at 1080p.
 
 **Goal.** Members watch and manage Waffles in the app. **Advances capabilities:** 4.
 
-- This-week, Archive and Waffle screens; delete and retry.
-- <decision: PWA scope: installable only, or offline caching of the app shell>
+- The rest of the This-week screen (around Phase 2's Unfinished uploads), the Archive and
+  Waffle screens and the player; delete; the Retry button on the Upload and Waffle screens,
+  and the Upload screen's `ready` link.
+- The PWA is installable only, as scoped in [SPEC UI](../docs/SPEC.md#ui). *Why:* nothing
+  works offline anyway, and a caching service worker risks a stale shell after a
+  deploy and intercepted R2 range requests.
 
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row
-and all three R2 objects.
+and all three R2 objects. A Waffle deleted while its run is still encoding (a 4K clip, deleted
+once the run's encode step has started) ends that run with `callback: 404 <waffle id>`, and
+the R2 dashboard then shows nothing under `playback/<waffle id>/` (rule: the `no_waffle`
+cleanup after **Callback** in [SPEC Transcode](../docs/SPEC.md#transcode)). Download original
+saves, in Safari on iOS and in a desktop browser, a file under the readable name from
+[SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin) whose size and SHA-256
+match the exact file picked for upload, its SHA-256 taken before the upload (the iOS copy
+checked on a computer). A Waffle screen paused on a phone that is then left locked for more
+than 6 hours, and not reloaded meanwhile, still plays from where it was paused and still
+downloads the original (rule: **Player** in [SPEC UI](../docs/SPEC.md#ui)). Added to the home
+screen from Safari on iOS and Chrome on Android, the app opens standalone with its name and
+icon, and `navigator.serviceWorker.getRegistrations()` returns an empty list.
+An upload stopped mid-way does not fill its owner's avatar on the This-week screen.
+Two Waffles left `failed` by a rejected dispatch, as in Phase 3's invalid-token check, show
+Retry to their owner, one on the Upload screen (kept open) and one on the Waffle screen, and
+once the valid token is set back, each Retry takes its Waffle to `ready`; another member's
+Waffle screen for a `failed` Waffle shows no Retry. Under `wrangler dev`, with Waffles from
+two members across 2025 and 2026 inserted straight into the local D1 (their cards may show no
+poster), the Archive filtered by each member, and by each year, shows exactly that member's
+or that year's Waffles, grouped by week, newest first, with a Waffle filed to the week of
+Wednesday 31 December 2025 under 2025. Delete passes its cross-site, signed-out and
+dispatch-target bucket cases and, from **Delete and abort** in
+[SPEC Tests worth writing](../docs/SPEC.md#build-plan), a failure at each of its R2 calls
+followed by a repeat that finishes. This phase's screens, and Phase 2's Unfinished uploads,
+pass the **Text rendering** cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan)
+(rule: [SPEC UI](../docs/SPEC.md#ui)).
 
-**Why here.** It needs ready playback copies from Phase 3.
+**Why here.** It needs ready playback copies from Phase 3 and the read routes from Phases 2
+and 3.
 
 ### Phase 5: Discord · planned
 
 **Goal.** The group hears about each Waffle where they already talk. **Advances capabilities:** 3.
 
-- Webhook on `ready`, message deleted with the Waffle.
+- Webhook on `ready`, built on Phase 3's webhook poster, with the callback's Discord claim
+  that Phase 3 left out, message deleted with the Waffle, and failed posts handled as in
+  [SPEC Discord notification](../docs/SPEC.md#discord-notification).
 
 **Exit criteria.** One message appears per ready Waffle, in a test channel first, with a
-working link.
+working link, and the message is deleted with the Waffle. In the test channel, which only
+the admin can see, a Waffle captioned `@everyone` posts and the admin gets no mention
+notification for it. A webhook revoked by deleting it in Discord leaves the Waffle `ready`
+with Post to Discord again. While it is still revoked, deleting a Waffle posted before the
+revoke removes its row and R2 objects, its message stays in the channel, and the Worker logs
+its `delete: discord message delete failed` line (rules:
+[SPEC Discord notification](../docs/SPEC.md#discord-notification)). Once
+`DISCORD_WEBHOOK_URL` holds a new test-channel webhook, Post to Discord again posts one
+message and clears `discord_error`. A duplicate callback posts once. A Waffle that reached
+`ready` under Phase 3, and so was never posted, shows Post to Discord again to its owner, and
+pressing it posts it. `POST /api/waffles/:id/discord` passes its cross-site and signed-out
+cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
 
@@ -189,18 +427,55 @@ working link.
 - `/api/heatmap` and the heatmap screen.
 
 **Exit criteria.** The grid matches the archive for seeded test data, including a week with
-two Waffles from one member and a Waffle filed to the previous week.
+two Waffles from one member, a Waffle filed to the previous week, and Waffles at Tuesday
+23:59:59 and Wednesday 00:00:00 ET landing in consecutive weeks, in both an EST and an EDT
+week (seeds get `week_start` from `uploaded_at` through the Waffle-week function). A member
+who has not yet posted in the current week keeps their streak, posting in it adds one, a
+past week with no Waffle from them breaks it, a run spanning the last week of one year and
+the first week of the next counts as one streak, a run from December into February counts
+its December weeks toward the Best streak of the year it ends in, a 53-week year such as
+2025 shows 53 columns and a run through its 53rd week carries into 2026's first week, and a
+past year shows "Best YYYY streak" instead of the current streak (rules: SPEC
+[Waffle week](../docs/SPEC.md#waffle-week) and [UI](../docs/SPEC.md#ui)). `GET /api/heatmap`
+passes its signed-out case in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It is a read-only view over Waffles the earlier phases create.
 
 ## Sequencing rationale
 
-<!-- Phase-level dependencies only. Feature-level chains and couplings live in META-PLAN. -->
+<!-- Phase-level dependencies, launch and the domain cutover only. Feature-level chains and couplings live in META-PLAN. -->
 
 `0 → 1 → 2 → 3 → {4, 5} → 6`. The riskiest parts (large phone uploads, then transcode time
 and size) come first. 4 before 5 is a preference (the Discord link lands on the Waffle
 screen), not a hard dependency: 5 needs only Phase 3's `ready` state. Launch follows Phase 6:
-point the webhook at the real channel, run two Wednesdays alongside WhatsApp, then retire it.
+the webhook swap below, two Wednesdays alongside WhatsApp, then retiring the WhatsApp group.
+
+**Webhook swap.** First delete the prototype's test Waffles, since the archive starts on
+launch day and the test webhook can still delete their messages; a `ready` test Waffle left
+unposted would otherwise post to the group through Post to Discord again. Then create a
+webhook in the real channel and run `npx wrangler secret put DISCORD_WEBHOOK_URL`, pasting
+its URL at the prompt; this updates the deployed Worker. The real webhook never goes in a
+`.dev.vars`, which keeps the test channel's, or anywhere else: not in the repo, an issue, a
+workflow log or Discord. The token alerts post through the same secret, so they move to the
+real channel with it (rule: [SPEC Transcode](../docs/SPEC.md#transcode)). A Waffle kept from
+before the swap keeps its message in the test channel, which the new webhook cannot delete,
+so deleting it logs the expected `delete: discord message delete failed` line and still
+deletes it (rule: [SPEC Discord notification](../docs/SPEC.md#discord-notification)).
+**Swap check:** a test Waffle uploaded after the swap posts in the real channel, and
+deleting it removes that message.
+
+The [domain cutover](../docs/SPEC.md#domain-cutover-after-the-prototype-is-proven) is not a
+phase; it runs once the prototype is proven, since only the custom domain can carry the
+callback's zone rate limit. **Exit check:** the rule reads back from the zone's rate-limiting
+rules (dashboard or API) as SPEC states it, and a burst of 11 unsigned POSTs to
+`/api/internal/transcode-callback` within 10 seconds gets a 429 for the 11th, with no Worker
+log line for it (rule: **Callback rate limit** in
+[SPEC Environments](../docs/SPEC.md#environments)). **Cutover check:** after step 8, a member
+signs in on the new origin, an upload started after step 6 reaches `ready` with its callback
+sent to the new origin (Workers Logs shows the callback request on the new hostname), and
+the Discord post's link opens that Waffle, which is then deleted; after step 9, the
+workers.dev origin no longer serves the app and the `waffles` CORS rule, read back, lists
+only the new origin.
 
 ## Maintaining this file
 

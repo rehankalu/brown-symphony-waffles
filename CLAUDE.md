@@ -10,22 +10,23 @@ parsing) come from ~/.claude/CLAUDE.md and are not repeated here. -->
 
 | Question | Document |
 |---|---|
-| How do I run and test it? | `README.md` |
+| How do I run, test and operate it? | `README.md` |
 | What rules must an agent follow here? | this file |
 | Where is the project going, and why in this order? | `plans/ROADMAP.md` |
 | What is the next feature, and what does the code look like now? | `plans/META-PLAN.md` |
 | How is a given feature being built? | `plans/<topic>/<slug>.md` |
+| What exactly should the MVP do (data model, API, pipeline, UI)? | `docs/SPEC.md` |
 
 Each fact has one home. Link to it from elsewhere; never copy it.
 
 ## Stack
 
-- TypeScript throughout.
+- TypeScript throughout; npm as the package manager.
 - SvelteKit with `@sveltejs/adapter-cloudflare`: UI and API in one Cloudflare Worker.
 - D1 for metadata, via Drizzle ORM and its migrations.
 - R2 for every video (private buckets `waffles` and `waffles-dev`), presigned with `aws4fetch`.
 - Transcoding in a GitHub Actions workflow on `ubuntu-latest` with ffprobe/ffmpeg, started
-  by `repository_dispatch`; it reports back through an HMAC-signed callback.
+  by `workflow_dispatch`; it reports back through an HMAC-signed callback.
 - Discord OAuth for sign-in, a Discord channel webhook for notifications.
 - Vitest for unit tests.
 
