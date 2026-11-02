@@ -199,11 +199,11 @@ with its multipart upload aborted, and one set back just under 7 days stays. The
 their cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409
 `cancelled` re-read, the upload checks, the cross-site checks on the upload routes, the
 signed-out checks on the upload and read routes, a removed member's old cookie on
-`POST /api/uploads`, the abandoned-upload sweep, `uploading` Waffles, the Waffle list
-filters, the Upload screen's polling (its 404 and 401 included), the `Content-Disposition`
-name and the dispatch target's bucket cases for the upload and read routes and the sweep
-(`complete`'s R2 calls only; its dispatch follows in Phase 3). Phase 2's test Waffles stay
-until Phase 4's Delete removes them.
+`POST /api/uploads`, the abandoned-upload sweep, failed and retried uploads, `uploading`
+Waffles, the Waffle list filters, the Upload screen's polling (its 404 and 401 included), the
+`Content-Disposition` name and the dispatch target's bucket cases for the upload and read
+routes and the sweep (`complete`'s R2 calls only; its dispatch follows in Phase 3). Phase 2's
+test Waffles stay until Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -413,9 +413,10 @@ revoke removes its row and R2 objects, its message stays in the channel, and the
 its `delete: discord message delete failed` line (rules:
 [SPEC Discord notification](../docs/SPEC.md#discord-notification)). Once
 `DISCORD_WEBHOOK_URL` holds a new test-channel webhook, Post to Discord again posts one
-message and clears `discord_error`. A duplicate callback posts once.
-`POST /api/waffles/:id/discord` passes its cross-site and signed-out cases in
-[SPEC Tests worth writing](../docs/SPEC.md#build-plan).
+message and clears `discord_error`. A duplicate callback posts once. A Waffle that reached
+`ready` under Phase 3, and so was never posted, shows Post to Discord again to its owner, and
+pressing it posts it. `POST /api/waffles/:id/discord` passes its cross-site and signed-out
+cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
 
