@@ -150,7 +150,8 @@ with a made-up `code` and `state`, without starting sign-in first, shows the "Si
 page, not "not a member", sets no session cookie and writes `auth callback: state mismatch` to
 the Worker log; tests cover the other callback failures. A `POST /auth/logout` with a valid
 session cookie and an `Origin` of another site gets 403 `bad_origin` and the session still works;
-each later route's cross-site cases follow with the phase that builds it (Phases 2 to 5).
+each later route's cross-site and signed-out cases follow with the phase that builds it
+(Phases 2 to 6).
 
 **Why here.** Every `/api` route but the transcode callback requires a session.
 
@@ -184,14 +185,15 @@ when the same file is picked again, and Cancel upload removes the row and the mu
 upload (an S3 `ListMultipartUploads` call, with the R2 keys read from environment variables
 and pasted nowhere, no longer lists it); one file close to 5 GiB also passes the size and
 SHA-256 check. After `complete`, the Upload screen shows `processing` and polls, and with
-the network cut for 3 polls it shows its connection note. Both GET routes return 401
-without a session. Under `wrangler dev`, an `uploading` row whose `uploaded_at` is set back
-8 days is gone after a `GET /api/waffles`, with its multipart upload aborted, and one set
-back just under 7 days stays. These pass their cases in
-[SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409 `cancelled`
-re-read, the upload checks, the cross-site checks on the upload routes, the abandoned-upload
-sweep, `uploading` Waffles, the Upload screen's polling (its 404 and 401 included) and the
-`Content-Disposition` name. Phase 2's test Waffles stay until Phase 4's Delete removes them.
+the network cut for 3 polls it shows its connection note. Under `wrangler dev`, an
+`uploading` row whose `uploaded_at` is set back 8 days is gone after a `GET /api/waffles`,
+with its multipart upload aborted, and one set back just under 7 days stays. These pass
+their cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409
+`cancelled` re-read, the upload checks, the cross-site checks on the upload routes, the
+signed-out checks on the upload and read routes, a removed member's old cookie on
+`POST /api/uploads`, the abandoned-upload sweep, `uploading` Waffles, the Upload screen's
+polling (its 404 and 401 included) and the `Content-Disposition` name. Phase 2's test Waffles
+stay until Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -259,7 +261,7 @@ nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Wa
 `processing_at` is backdated past 150 minutes reads as `failed` with the **Stuck jobs**
 message from [SPEC Transcode](../docs/SPEC.md#transcode) in both GET routes, and a `ready`
 Waffle with the same `processing_at` stays `ready`. The Retry route passes its cross-site
-cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
+and signed-out cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 With fixture GitHub responses and a dummy token, the token expiry check sends the GitHub
 request headers from [SPEC Transcode](../docs/SPEC.md#transcode) and posts one alert for a token
 expiring 13 days after the run and one each for a 401, a 403 and a 404, and posts nothing
@@ -335,9 +337,10 @@ An upload stopped mid-way does not fill its owner's avatar on the This-week scre
 Two Waffles left `failed` by a rejected dispatch, as in Phase 3's invalid-token check, show
 Retry to their owner, one on the Upload screen (kept open) and one on the Waffle screen, and
 once the valid token is set back, each Retry takes its Waffle to `ready`; another member's
-Waffle screen for a `failed` Waffle shows no Retry. Delete passes its cross-site cases and,
-from **Delete and abort** in [SPEC Tests worth writing](../docs/SPEC.md#build-plan), a
-failure at each of its R2 calls followed by a repeat that finishes.
+Waffle screen for a `failed` Waffle shows no Retry. Delete passes its cross-site and
+signed-out cases and, from **Delete and abort** in
+[SPEC Tests worth writing](../docs/SPEC.md#build-plan), a failure at each of its R2 calls
+followed by a repeat that finishes.
 
 **Why here.** It needs ready playback copies from Phase 3 and the read routes from Phases 2
 and 3.
@@ -360,7 +363,7 @@ its `delete: discord message delete failed` line (rules:
 [SPEC Discord notification](../docs/SPEC.md#discord-notification)). Once
 `DISCORD_WEBHOOK_URL` holds a new test-channel webhook, Post to Discord again posts one
 message and clears `discord_error`. A duplicate callback posts once.
-`POST /api/waffles/:id/discord` passes its cross-site cases in
+`POST /api/waffles/:id/discord` passes its cross-site and signed-out cases in
 [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It fires on Phase 3's `ready` and links to Phase 4's Waffle screen.
@@ -381,7 +384,8 @@ the first week of the next counts as one streak, a run from December into Februa
 its December weeks toward the Best streak of the year it ends in, a 53-week year such as
 2025 shows 53 columns and a run through its 53rd week carries into 2026's first week, and a
 past year shows "Best YYYY streak" instead of the current streak (rules: SPEC
-[Waffle week](../docs/SPEC.md#waffle-week) and [UI](../docs/SPEC.md#ui)).
+[Waffle week](../docs/SPEC.md#waffle-week) and [UI](../docs/SPEC.md#ui)). `GET /api/heatmap`
+passes its signed-out case in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 
 **Why here.** It is a read-only view over Waffles the earlier phases create.
 
