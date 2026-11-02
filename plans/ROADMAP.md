@@ -191,9 +191,9 @@ with its multipart upload aborted, and one set back just under 7 days stays. The
 their cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2: the 409
 `cancelled` re-read, the upload checks, the cross-site checks on the upload routes, the
 signed-out checks on the upload and read routes, a removed member's old cookie on
-`POST /api/uploads`, the abandoned-upload sweep, `uploading` Waffles, the Upload screen's
-polling (its 404 and 401 included) and the `Content-Disposition` name. Phase 2's test Waffles
-stay until Phase 4's Delete removes them.
+`POST /api/uploads`, the abandoned-upload sweep, `uploading` Waffles, the Waffle list
+filters, the Upload screen's polling (its 404 and 401 included) and the `Content-Disposition`
+name. Phase 2's test Waffles stay until Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -337,7 +337,11 @@ An upload stopped mid-way does not fill its owner's avatar on the This-week scre
 Two Waffles left `failed` by a rejected dispatch, as in Phase 3's invalid-token check, show
 Retry to their owner, one on the Upload screen (kept open) and one on the Waffle screen, and
 once the valid token is set back, each Retry takes its Waffle to `ready`; another member's
-Waffle screen for a `failed` Waffle shows no Retry. Delete passes its cross-site and
+Waffle screen for a `failed` Waffle shows no Retry. Under `wrangler dev`, with Waffles from
+two members across 2025 and 2026 inserted straight into the local D1 (their cards may show no
+poster), the Archive filtered by each member, and by each year, shows exactly that member's
+or that year's Waffles, grouped by week, newest first, with a Waffle filed to the week of
+Wednesday 31 December 2025 under 2025. Delete passes its cross-site and
 signed-out cases and, from **Delete and abort** in
 [SPEC Tests worth writing](../docs/SPEC.md#build-plan), a failure at each of its R2 calls
 followed by a repeat that finishes.
