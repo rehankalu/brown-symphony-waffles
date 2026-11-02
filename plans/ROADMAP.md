@@ -192,8 +192,10 @@ their cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan) in Phase 2
 `cancelled` re-read, the upload checks, the cross-site checks on the upload routes, the
 signed-out checks on the upload and read routes, a removed member's old cookie on
 `POST /api/uploads`, the abandoned-upload sweep, `uploading` Waffles, the Waffle list
-filters, the Upload screen's polling (its 404 and 401 included) and the `Content-Disposition`
-name. Phase 2's test Waffles stay until Phase 4's Delete removes them.
+filters, the Upload screen's polling (its 404 and 401 included), the `Content-Disposition`
+name and the dispatch target's bucket cases for the upload and read routes and the sweep
+(`complete`'s R2 calls only; its dispatch follows in Phase 3). Phase 2's test Waffles stay
+until Phase 4's Delete removes them.
 
 **Why here.** Large uploads from phones are the riskiest part, so they are proven first.
 
@@ -261,7 +263,8 @@ nothing dispatched, and then the owner's Retry takes the Waffle to `ready`. A Wa
 `processing_at` is backdated past 150 minutes reads as `failed` with the **Stuck jobs**
 message from [SPEC Transcode](../docs/SPEC.md#transcode) in both GET routes, and a `ready`
 Waffle with the same `processing_at` stays `ready`. The Retry route passes its cross-site
-and signed-out cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan).
+and signed-out cases, and `complete` and Retry pass the dispatch target's cases, in
+[SPEC Tests worth writing](../docs/SPEC.md#build-plan).
 With fixture GitHub responses and a dummy token, the token expiry check sends the GitHub
 request headers from [SPEC Transcode](../docs/SPEC.md#transcode) and posts one alert for a token
 expiring 13 days after the run and one each for a 401, a 403 and a 404, and posts nothing
@@ -341,8 +344,8 @@ Waffle screen for a `failed` Waffle shows no Retry. Under `wrangler dev`, with W
 two members across 2025 and 2026 inserted straight into the local D1 (their cards may show no
 poster), the Archive filtered by each member, and by each year, shows exactly that member's
 or that year's Waffles, grouped by week, newest first, with a Waffle filed to the week of
-Wednesday 31 December 2025 under 2025. Delete passes its cross-site and
-signed-out cases and, from **Delete and abort** in
+Wednesday 31 December 2025 under 2025. Delete passes its cross-site, signed-out and
+dispatch-target bucket cases and, from **Delete and abort** in
 [SPEC Tests worth writing](../docs/SPEC.md#build-plan), a failure at each of its R2 calls
 followed by a repeat that finishes.
 
