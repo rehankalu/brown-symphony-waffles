@@ -242,9 +242,19 @@ until Phase 4's Delete removes them.
 **Exit criteria.** An iPhone HDR clip, an iPhone SDR clip and an Android clip, each played
 from the presigned playback URL that `GET /api/waffles/:id` returns, play correctly in
 Safari on iOS, Chrome on Android and Chrome or Edge on Windows, and a 4K clip over the
-threshold comes out at 1080p. An H.264 SDR clip with no audio stream takes the remux path
-and its playback copy has no audio track, and an Android clip that ffprobe reports as
-`yuvj420p` takes the remux path and its playback copy keeps the original's `pix_fmt` and
+threshold comes out at 1080p. A portrait 4K HEVC iPhone clip with a rotation flag (the
+re-encode path) plays upright in the same browsers, and its playback copy is portrait with no
+rotation flag. Before these copies are judged, ffprobe of the stored originals shows the HDR
+clip's HLG or PQ `color_transfer` and the portrait clip's rotation flag, so that no picker
+converted them on the way up. For each clip that reaches `ready`, ffprobe of the original and
+the playback copy gives the same displayed width and height (rotation applied), the same
+`avg_frame_rate` to within 1% and the same duration to within 0.1 s, except the width and
+height of a copy the size cap scaled down. The HDR clip's
+playback copy reports `color_transfer` `bt709` and its Waffle stores `is_hdr = 1`, while the
+SDR clips store `is_hdr = 0` (rules: **HDR is tone-mapped to SDR** and **Resolution is kept**
+in [SPEC Transcode](../docs/SPEC.md#transcode)). An H.264 SDR clip with no audio stream takes
+the remux path and its playback copy has no audio track, and an Android clip that ffprobe
+reports as `yuvj420p` takes the remux path and its playback copy keeps the original's `pix_fmt` and
 `color_range` (rule: the remux path in [SPEC Transcode](../docs/SPEC.md#transcode)). A
 10-bit H.264 clip and an H.264 clip with MP3 audio take the re-encode path, and a clip at
 1080p or below whose re-encoded copy exceeds 1.5× the original (for example an HEVC noise
@@ -337,9 +347,18 @@ permissions** and **Untrusted file** in [SPEC Transcode](../docs/SPEC.md#transco
   deploy and intercepted R2 range requests.
 
 **Exit criteria.** Seeking works mid-video on a phone, and deleting a Waffle removes the row
-and all three R2 objects. Added to the home screen from Safari on iOS and Chrome on Android,
-the app opens standalone with its name and icon, and
-`navigator.serviceWorker.getRegistrations()` returns an empty list.
+and all three R2 objects. A Waffle deleted while its run is still encoding (a 4K clip, deleted
+once the run's encode step has started) ends that run with `callback: 404 <waffle id>`, and
+the R2 dashboard then shows nothing under `playback/<waffle id>/` (rule: the `no_waffle`
+cleanup after **Callback** in [SPEC Transcode](../docs/SPEC.md#transcode)). Download original
+saves, in Safari on iOS and in a desktop browser, a file under the readable name from
+[SPEC API routes](../docs/SPEC.md#api-routes-all-under-the-app-origin) whose size and SHA-256
+match the exact file picked for upload, its SHA-256 taken before the upload (the iOS copy
+checked on a computer). A Waffle screen paused on a phone that is then left locked for more
+than 6 hours, and not reloaded meanwhile, still plays from where it was paused and still
+downloads the original (rule: **Player** in [SPEC UI](../docs/SPEC.md#ui)). Added to the home
+screen from Safari on iOS and Chrome on Android, the app opens standalone with its name and
+icon, and `navigator.serviceWorker.getRegistrations()` returns an empty list.
 An upload stopped mid-way does not fill its owner's avatar on the This-week screen.
 Two Waffles left `failed` by a rejected dispatch, as in Phase 3's invalid-token check, show
 Retry to their owner, one on the Upload screen (kept open) and one on the Waffle screen, and
