@@ -467,3 +467,97 @@ Most failure paths have fixed, ID-only log lines and scoped catches. Three paths
 | The abandoned-upload sweep duplicates the R2 lifecycle rule (`docs/SPEC.md:62`) | major | subagent-3:simplicity | not logged |
 
 Not logged: the ledger is dormant and logs critical misses only. Minor misses (dispatch-target test, clip checks, sweep trigger, error-handling minors, curl drill, Integration Risk minors) were skipped for the same reason. Findings that reopen decided DDs, and findings on lines from before `b0e089f`, are not counted as misses.
+
+## Review 6
+Generated: 2026-11-01 22:20
+Comparison: origin/docs/spec b0e089f0a6fa27f629a846f7c4fc11df2bfe1442..f4171d2fbedb7052c34cf518ab446b9be74c21d5
+Verdict: **PUSHED WITH MINOR FINDINGS**
+
+Full review mode: `docs/SPEC.md` is not a plans/README/CLAUDE.md path. Type Design not launched (no code types).
+
+### Results by Reviewer
+
+#### 1. Safety & Security — PASS
+No security flaws in the specified design or the commands the docs run; auth, CSRF, HMAC callback, presigned-URL scope, workflow injection and secret handling are covered, and the remaining risks are recorded as accepted.
+
+#### 2. Correctness — PASS
+Week/DST logic, multipart math, state machine, callback flow, cross-document anchors and the whitespace-only rewrap (empty word diff) all check out.
+- (minor) `docs/SPEC.md:813`: no status code for a non-owner on `DELETE /api/waffles/:id`, `retry` or `discord`, so the owner-only tests and Phase 3/4 checks have nothing to assert.
+- (minor) `docs/SPEC.md:283`: the Transcode steps never say how ffmpeg gets onto the runner, or that it needs libx264, libzimg (zscale) and 5.1+ (`-fps_mode`).
+- (minor) `docs/SPEC.md:273`: the poster command's `-protocol_whitelist file -f mov` flags appear only in the Untrusted file paragraph, not in Transcode step 4, and no Phase 3 check covers them.
+
+#### 3. Simplicity & Conciseness — PASS
+Heavily detailed for a four-person app, but the big choices were already decided; minor trims only.
+- (minor) `docs/SPEC.md:226`: the Worker entry paragraph carries build plumbing (declaration shim, `[build]` command, ASSETS binding) that belongs to Phase 0's plan.
+- (minor) `docs/SPEC.md:369`: decision IDs and their rationale sit in normative text (sweep, Callback rate limit).
+- (minor) `plans/ROADMAP.md:1855`: Phase 3 exit criteria (~100 lines) restate SPEC rules and test cases.
+- (minor) `docs/SPEC.md:1199`: cross-year streaks plus a past-year Best streak is an intricate rule for four people.
+- (minor) `README.md:70`: rotation runbooks' leak/routine branches are heavy and partly restate SPEC.
+- (minor) `docs/SPEC.md:1015`: Content-Disposition filename escaping is specified in more detail than needed.
+
+#### 4. Test Coverage — PASS
+Thorough tests, drills and exit criteria with week-boundary and DST coverage; minor gaps only.
+- (minor) `docs/SPEC.md:1307`: heatmap tests cover only the early-January `bad_year`; missing, non-integer and future years are untested.
+- (minor) `docs/SPEC.md:1132`: callback-sender tests don't assert a fresh timestamp per retry, the 20 s timeout, no redirect following, or the 30/60/120 s waits.
+- (minor) `docs/SPEC.md:1123`: no test that `playback_key`/`poster_key` in a signed body are ignored in favour of the storage layout.
+- (minor) `docs/SPEC.md:1180`: Delete on an `uploading` Waffle (409) and abort on a non-uploading one (`cannot_cancel`) lack tests asserting no R2 call.
+- (minor) `docs/SPEC.md:1215`: no test that the owner's GET of an `uploading` Waffle returns no URLs and no `upload_id`.
+- (minor) `docs/SPEC.md:1132`: `bad_week` Tuesday 23:59 / Wednesday 00:00 cases aren't repeated in the weeks after both DST changes.
+- (minor) `plans/ROADMAP.md:210`: Phase 3 doesn't check that Phase 2's leftover `processing` Waffles turn `failed` and recover via Retry.
+- (minor) `plans/ROADMAP.md:210`: no drill for the download/upload failure categories, the poster no-frame failure or the cleanup-failed line (the paths that could leak bucket names to public logs).
+- (minor) `README.md:52`: the R2 rotation runbook's step 5 effects and leak variant are never exercised.
+- (minor) `plans/ROADMAP.md:210`: nothing confirms the real 14:00 UTC cron fired on the deployed Worker.
+
+#### 5. Completeness & Cleanup — PASS
+All Review 5 To-Do items are ticked and reflected; anchors resolve; no TODO/FIXME/scratch.
+- (minor, no change needed) `CLAUDE.md:37`: Folder layout and commands read "not set up yet", which is accurate for a docs-only branch; the first code feature must update them.
+
+#### 6. Consistency & Style — PASS
+Terminology, secret, bucket and status names and snake_case identifiers are consistent.
+- (minor) `docs/SPEC.md:550`: R2 key templates use `{waffleId}`; elsewhere the same value is `<waffle id>`, `{id}` or `:id`.
+- (minor) `docs/SPEC.md:183`: decision IDs appear in only two SPEC paragraphs (Abandoned uploads, Callback rate limit).
+- (minor) `docs/SPEC.md:1336`: Resolved questions restates facts that live in CLAUDE.md and the Decisions table.
+- (minor) `plans/ROADMAP.md:79`: Principles items exceed the template's one-or-two-sentence limit; "The project rules" restates CLAUDE.md.
+- (minor) `plans/ROADMAP.md:446`: lines 95, 115, 168, 212, 289, 446 and SPEC lines 865, 923, 1062, 1067, 1068, 1084 exceed ~95 characters.
+- (minor) `docs/SPEC.md:1106`: table delimiter style (`| --- |` vs `|---|`) differs across docs (predates the branch).
+
+#### 7. Integration Risk — PASS
+The full schema lands in Phase 0, and bindings and secrets agree between README and SPEC.
+- (minor) `docs/SPEC.md:428`: a 120-minute job timeout may not cover a ~5 GiB 10-minute 4K60 encode at `-preset slow`; Phase 3 times only short clips.
+- (minor) `CLAUDE.md:28`: `ubuntu-latest` and the ffmpeg install are unpinned.
+- (minor) `docs/SPEC.md:718`: `GET /api/waffles` doesn't say whether items carry presigned poster URLs, or whether the list is bounded.
+- (minor) `docs/SPEC.md:1329`: the D1 migration mechanism is unnamed, and the D1 backup follow-on's Cloudflare token/account secrets aren't listed; D1 Time Travel isn't named as the interim restore path.
+- (minor) `docs/SPEC.md:683`: `kit.csrf.checkOrigin = false` may be deprecated in later SvelteKit 2.x.
+- (minor) `docs/SPEC.md:629`: `GET /users/@me/guilds` returns at most 200 guilds and the spec doesn't paginate.
+
+#### 8. Error Handling & Silent Failures — PASS
+Failure paths are surfaced, logged with ID-only fixed lines, bounded and actionable.
+- (minor) `docs/SPEC.md:73`: a failed R2 CreateMultipartUpload has no stated response, log line or message.
+- (minor) `docs/SPEC.md:80`: a part PUT with an unreadable ETag isn't treated as a failed attempt, so it surfaces only at complete.
+- (minor) `docs/SPEC.md:370`: a `ready` Waffle whose Discord post is never attempted leaves no `discord_error` and no log line.
+- (minor) `docs/SPEC.md:913`: load failures for This week, Archive, Participation and Unfinished uploads, and D1 errors on GET routes, are unspecified.
+
+### To-Do: Required Changes
+
+- [ ] **Define the non-owner response** — `docs/SPEC.md` (~line 813, Error codes) — State that a non-owner gets 404 `not_found` on `DELETE /api/waffles/:id`, `POST .../retry` and `POST .../discord` before any R2, GitHub or Discord call, so the owner-only tests have a response to assert.
+- [ ] **Pin the runner and specify the ffmpeg install** — `docs/SPEC.md` (~line 283, Transcode), `CLAUDE.md:28`, `plans/ROADMAP.md` (Phase 3 exit criteria) — Use a pinned runner label (e.g. `ubuntu-24.04`), state how ffmpeg is installed and that it must include libx264 and libzimg and be 5.1+, and add a Phase 3 check of `ffmpeg -version` and `ffmpeg -filters` (zscale, tonemap).
+- [ ] **State the poster command's input flags** — `docs/SPEC.md` (~line 273, Transcode step 4), `plans/ROADMAP.md` (Phase 3 workflow-read check) — Put `-protocol_whitelist file -f mov` in step 4 and extend the pre-merge read to the poster command.
+- [ ] **Size the job timeout from a worst-case encode** — `docs/SPEC.md` (~line 428), `plans/ROADMAP.md` (Phase 3 exit criteria) — Add a check encoding the longest allowed clip (~5 GiB 10-minute 4K60 HEVC), record time and peak disk, and set `timeout-minutes` and the stuck-jobs window from it.
+- [ ] **Fix the list route's poster contract** — `docs/SPEC.md` (~line 718, `GET /api/waffles`) — Say whether each item carries a presigned poster URL (and its expiry) and whether the list is bounded, so Phase 2's tests fix the shape.
+- [ ] **Name the D1 migration mechanism and interim restore path** — `docs/SPEC.md` (~line 1329), `plans/ROADMAP.md` (Phase 0) — Name the migration flow (e.g. `drizzle-kit generate` plus `wrangler d1 migrations apply`), note D1 Time Travel as the restore path until the export job exists, and list that job's extra secrets when it is specified.
+- [ ] **Guard the CSRF setting against upgrades** — `docs/SPEC.md` (~line 683), `plans/ROADMAP.md` (Phase 1) — Verify `kit.csrf.checkOrigin` against the SvelteKit version Phase 0 installs, and add a Phase 1 test that a form-type cross-site POST gets the hook's 403 `bad_origin` JSON.
+- [ ] **Handle or accept the 200-guild limit** — `docs/SPEC.md` (~line 629) — Accept it as a limitation for four members, or check membership with `GET /users/@me/guilds/{guild.id}/member` (`guilds.members.read`).
+- [ ] **Specify the missing upload failure edges** — `docs/SPEC.md` (~lines 73, 80) — A failed CreateMultipartUpload returns 5xx with a fixed log line and the start-failed message; a part PUT without a readable ETag counts as a failed attempt.
+- [ ] **Surface a never-attempted Discord post** — `docs/SPEC.md` (~line 370) — Set a fixed `discord_error` (or log line) when a `ready` Waffle's post is never attempted, or state that the owner's Waffle screen is the only signal and accept it.
+- [ ] **Add a load-failure rule for list screens and GET routes** — `docs/SPEC.md` (~line 913) — A failed list or heatmap load shows a fixed "Could not load; reload, or tell the admin." state, never an empty grid; a D1 error in a GET route returns 500 with a fixed Worker log line.
+- [ ] **Fill the listed test gaps** — `docs/SPEC.md` (Tests worth writing ~lines 1123-1307) — Add: `bad_year` for missing/non-integer/future years; sender fresh timestamp per retry, 20 s timeout, no redirects, 30/60/120 s waits; body `playback_key`/`poster_key` ignored; Delete on `uploading` (409) and abort on non-uploading (`cannot_cancel`) with no R2 call; owner GET of an `uploading` Waffle returns no URLs or `upload_id`; `bad_week` boundary cases in both DST weeks.
+- [ ] **Fill the listed drill gaps** — `plans/ROADMAP.md` (Phase 3 exit criteria ~line 210), `README.md:52` — Add: Phase 2 leftover Waffles turn `failed` and recover via Retry; a wrong-R2-key run fails with the download category and an ID-only log line (and an upload-category check); the R2 rotation's old-token-deleted effect; the real 14:00 UTC cron fired on the deployed Worker.
+- [ ] **Unify the Waffle ID placeholder** — `docs/SPEC.md` (~line 550) — Replace `{waffleId}` in the R2 key table with `{id}` or `<waffle id>`.
+- [ ] **Move decision IDs out of SPEC prose** — `docs/SPEC.md` (~lines 183, 369) — Drop the dd-IDs and rationale from Abandoned uploads and Callback rate limit, leaving them in the review file.
+- [ ] **Link Resolved questions instead of restating** — `docs/SPEC.md` (~line 1336) — Point the time zone, public repo, 4K and 1.5× rows at their owning sections, or drop rows duplicating the Decisions table.
+- [ ] **Shorten ROADMAP Principles items** — `plans/ROADMAP.md` (~line 79) — Trim Accepted risk, External dependencies and The project rules to one or two sentences, linking CLAUDE.md, or relax the template comment.
+- [ ] **Rewrap over-long prose lines** — `plans/ROADMAP.md` (lines 95, 115, 168, 212, 289, 446), `docs/SPEC.md` (lines 865, 923, 1062, 1067, 1068, 1084) — Rewrap at about 95 characters.
+- [ ] **Consider trimming over-detailed spec passages** — `docs/SPEC.md` (~lines 226, 1015, 1199), `plans/ROADMAP.md` (~line 1855), `README.md:70` — Optionally move the Worker entry build plumbing to Phase 0's plan, simplify the Content-Disposition rule, reconsider cross-year streaks, condense Phase 3 exit criteria to outcomes linking SPEC tests, and shorten the rotation runbooks' leak branches.
+- [ ] **Pick one table delimiter style** — `docs/SPEC.md`, `README.md`, `CLAUDE.md`, `plans/META-PLAN.md` — Use one style when next editing (predates this branch; optional).
+
+6b: 0 misses. The only finding in a file unchanged since Review 5 (`CLAUDE.md:28`, `ubuntu-latest`) was context in Review 5's diff, not a changed line, and every other finding sits in a file or hunk changed since `6e102a6` (SPEC rewrapped, README and ROADMAP edited).
