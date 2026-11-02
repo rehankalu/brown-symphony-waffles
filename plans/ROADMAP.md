@@ -148,10 +148,14 @@ the "not a member" page and gets no session (rule: [SPEC Auth](../docs/SPEC.md#a
 signed in before a redeploy of the Worker is still signed in after it. Opening `/auth/callback`
 with a made-up `code` and `state`, without starting sign-in first, shows the "Sign-in failed"
 page, not "not a member", sets no session cookie and writes `auth callback: state mismatch` to
-the Worker log; tests cover the other callback failures. A `POST /auth/logout` with a valid
-session cookie and an `Origin` of another site gets 403 `bad_origin` and the session still works;
-each later route's cross-site and signed-out cases follow with the phase that builds it
-(Phases 2 to 6).
+the Worker log; tests cover the other callback failures, the cookie attributes and logout
+(rules: [SPEC Auth](../docs/SPEC.md#auth)). On the deployed app, the browser's dev tools show the
+session cookie with the attributes SPEC Auth names. There is no sign-out button yet, so the admin
+copies their session cookie's value from dev tools and sends `POST /auth/logout` with it by hand
+(with no `Origin` header); a page requested with the same value then redirects to sign-in. The
+value is never pasted into an issue, a commit or a log. A `POST /auth/logout` with a valid session
+cookie and an `Origin` of another site gets 403 `bad_origin` and the session still works; each
+later route's cross-site and signed-out cases follow with the phase that builds it (Phases 2 to 6).
 
 **Why here.** Every `/api` route but the transcode callback requires a session.
 
