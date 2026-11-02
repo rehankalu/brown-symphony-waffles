@@ -116,17 +116,17 @@ tab, and a rejected callback also in the Worker log. So the admin:
    step failures; a run that timed out may show as cancelled, and one that never started
    sends nothing.
 2. When a member says a Retry failed again, searches the Actions tab for the Waffle's ID (the
-   last part of its `/w/{id}` link; each run's title is `transcode <id> (<env>)`), opens the
+   last part of its `/w/{id}` link; each run's title is `transcode <waffle id> (<env>)`), opens the
    latest failed or cancelled run and reads its last line. **Failure output** and **Callback**
    in [SPEC Transcode](docs/SPEC.md#transcode) say what each line means. The admin fixes
    what the line names, for example:
-   - `callback: 401 <id>`: make the two copies of the secret match ([Rotating the callback
+   - `callback: 401 <waffle id>`: make the two copies of the secret match ([Rotating the callback
      secret](#rotating-the-callback-secret)), or fix a runner clock more than 5 minutes off.
    - `callback: retries exhausted ...`: check `CALLBACK_BASE_URL` and the Worker log. If that
      log shows `callback rejected: no secret`, set the Worker's secret with step 3 of
      [Rotating the callback secret](#rotating-the-callback-secret), using the repository
      secret's value.
-   - `callback: 404 <id>` for a Waffle that still exists: point `CALLBACK_BASE_URL` at the
+   - `callback: 404 <waffle id>` for a Waffle that still exists: point `CALLBACK_BASE_URL` at the
      deployed Worker's origin.
    - A failed secret check before the download (**Dispatch target** in SPEC Transcode): set
      the repository secret it names.
