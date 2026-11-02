@@ -191,7 +191,8 @@ and runs its tests with this runner.
 
 **Assumed starting state** = **Baseline**. Verify:
 - `ls package.json wrangler.toml wrangler.jsonc src 2>&1` finds none of them.
-- `grep -n 'not set up yet' CLAUDE.md README.md` hits *Commands* and *Getting started*/*Tests*.
+- `grep -ni 'not set up yet' CLAUDE.md README.md` hits CLAUDE.md *Commands* and README
+  *Getting started* / *Tests*.
 
 **Expected end state** (repo-checkable):
 - SvelteKit with `@sveltejs/adapter-cloudflare`, TypeScript, npm; `package.json` scripts
@@ -206,8 +207,10 @@ and runs its tests with this runner.
   `[observability] enabled = true`.
 - At least one Vitest test passes with `npm test`, and no test imports `src/worker.ts`.
 - META-PLAN's `Verification` fact is set (e.g. `npm run check && npm test`).
-- CLAUDE.md *Folder layout* and *Commands* (`dev`, `test`, `deploy`) and README *Getting
-  started* / *Tests* describe what now exists (SPEC Build plan asks for this).
+- CLAUDE.md *Folder layout* and *Commands* (`dev`, `test`, `deploy`) describe what now
+  exists (SPEC Build plan asks for this; `db:migrate` stays a placeholder until F2), and
+  README *Getting started* / *Tests* replace their `_Not set up yet._` placeholders with the
+  working install, run and test steps (`grep -ni 'not set up yet' README.md` finds nothing).
 - Manual, recorded in the plan's verification log: the deployed app on
   `waffles.<account>.workers.dev` returns a page, and Workers Logs shows that request after it
   finishes (ROADMAP Phase 0 exit criteria, first half).
