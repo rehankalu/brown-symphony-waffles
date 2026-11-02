@@ -370,3 +370,100 @@ Every failure path has a fixed, ID-only log line or an actionable message. Catch
 | A failed row insert after the multipart create has no log line (`docs/SPEC.md:47`) | minor | subagent-8:error-handling | git-push-20261029-003 |
 | Step 5 of the R2 key rotation is overly branchy (`README.md:62`) | minor | subagent-3:simplicity | git-push-20261029-004 |
 | The never-paste-secrets warning is repeated (`README.md:70`) | minor | subagent-3:simplicity | git-push-20261029-005 |
+
+## Review 5
+Generated: 2026-11-01 20:15
+Comparison: origin/docs/spec b0e089f0a6fa27f629a846f7c4fc11df2bfe1442..6e102a60dee35e74056eb986b520dfe4ac9dd89b
+Verdict: **BLOCKED**
+
+Mode: full review (first non-docs path: `docs/SPEC.md`); Type Design not launched (no code type definitions).
+
+### Results by Reviewer
+
+#### 1. Safety & Security — PASS
+The design is security-conscious: untrusted-input rules, a fail-closed HMAC, the ffmpeg protocol whitelist, Origin and Content-Type checks, and sanitized logs. Only minor hardening gaps remain:
+- (minor) `docs/SPEC.md:349`: every `.dev.vars` copy holds the both-bucket R2 token, so a leaked laptop copy can delete production originals, which are the only copy. A dev-only token scoped to `waffles-dev` would close this.
+- (minor) `docs/SPEC.md:76`: workflow secrets are plain repository secrets that any branch's run can read, and the spec never states that `workflow_dispatch` is the only trigger.
+- (minor) `docs/SPEC.md:306`: no security headers are specified (CSP `frame-ancestors 'none'`, `nosniff`), and nothing says caption, display name, `error` and `discord_error` are always rendered as text, never `{@html}`.
+- (minor) `docs/SPEC.md:230`: requests with no Origin header pass the cross-site check, so it is a single layer. `Sec-Fetch-Site` could be added as a second, optional layer.
+- (minor) `docs/SPEC.md:227`: nothing says login mints a fresh session token and discards the Discord access token, or how the `GET /api/waffles` query filters are validated.
+- (minor) `plans/ROADMAP.md:281`: the hand-curl drill would put the dispatch token in argv and shell history unless the header is passed via `-H @file` or `-K -`.
+
+#### 2. Correctness — PASS
+Anchors, boundary arithmetic and cross-document references are consistent.
+- (minor) `docs/SPEC.md:87`: a poster taken at about 1 s fails the whole transcode on a clip shorter than 1 s, and a fixed 1280 px width upscales narrow portrait clips.
+
+#### 3. Simplicity & Conciseness — FAIL
+- (major) `docs/SPEC.md:39`: the token expiry check (custom Worker entry, shim, Cron, log lines, alert type) could be replaced by a calendar reminder. *Already decided to keep: dd-261027-059, dd-261028-011.*
+- (major) `docs/SPEC.md:357`: the callback WAF rate limit. *Already decided to keep: dd-261028-009 (Review 4 item 3).*
+- (major) `docs/SPEC.md:62`: the abandoned-upload sweep (two triggers, guarded DELETE, R2 abort, log lines, race analysis) duplicates the R2 lifecycle rule. The owner's Cancel upload, or a by-hand script, could cover stale rows.
+- (major) `docs/SPEC.md:255`: the Abort or Delete invariants, together with Failed uploads and Error codes, are a failure model beyond what a four-person app needs. *Partly addressed by Review 4 item 14 (dd-261029-023).*
+- (major) `docs/SPEC.md:74`: the public-repo hardening cluster could shrink to three rules. *The rules were kept by dd-261028-013, and SHA pinning plus the `format_name` check were added by Review 4 item 6.*
+- (minor) `docs/SPEC.md:230`: the custom Origin hook could be dropped in favor of SvelteKit's default `csrf.checkOrigin`. *Added by Review 4 item 7 (the default check is turned off on purpose so the callback stays reachable).*
+- (minor) `docs/SPEC.md:269`: the Discord claim gives exactly-once delivery. *Kept by dd-261027-059.*
+- (minor) `docs/SPEC.md:108`: Racing runs lists limitations that change no decision. *dd-261027-031.*
+- (minor) `README.md:52`: the rotation runbooks carry leak-response branches. *Trimmed by Review 4 item 13.*
+- (minor) `docs/SPEC.md:382`: Tests worth writing still restates its rules. *Trimmed by Review 4 item 14.*
+
+#### 4. Test Coverage — FAIL
+- (major) `docs/SPEC.md:262`: no signed-out (401) check exists for any mutating `/api` route or for `GET /api/heatmap`. A route that forgets its session check would let anyone start uploads or delete Waffles.
+- (major) `plans/ROADMAP.md:329`: capability 4's Archive filters, grouping and newest-first order have no exit check or test, and the `year` filter of `GET /api/waffles` (`docs/SPEC.md:245`) is undefined (calendar year or heatmap year).
+- (minor) `docs/SPEC.md:389`: the dispatch-target test covers only complete and Retry, and doesn't assert the bucket name in signed requests for `prod` and `dev`.
+- (minor) `plans/ROADMAP.md:144`: no check that a successful logout invalidates the old cookie (it should then 401), and the `Set-Cookie` flags (HttpOnly, Secure, SameSite=Lax) are never asserted.
+- (minor) `plans/ROADMAP.md:329`: Phase 4 never checks that Download original saves a byte-identical file under its readable name, and an expired 6-hour GET URL has no defined behavior.
+- (minor) `plans/ROADMAP.md:233`: Phase 3's clip checks don't compare the resolution, frame rate and duration of original and playback, don't include a portrait 4K clip with a rotation flag, and don't assert HDR to bt709 with `is_hdr = 1`.
+- (minor) `plans/ROADMAP.md:233`: no real drill covers the job's `no_waffle` 404 cleanup (delete a Waffle mid-run, then list R2).
+- (minor) `docs/SPEC.md:393`: the sweep's `POST /api/uploads` trigger and its runs-after-response behavior (`ctx.waitUntil`) are untested.
+
+#### 5. Completeness & Cleanup — PASS
+No stale references to removed items, all anchors resolve, and all 16 Review 4 ticks match the commit log.
+- (minor) `plans/META-PLAN.md:35`, `README.md:13`: intended placeholders (Verification pending, Getting started not set up).
+
+#### 6. Consistency & Style — PASS
+- (minor) `README.md:123`, `README.md:129`: the log-line placeholder is written `<id>`, but SPEC's literals use `<waffle id>`.
+- (minor) `docs/SPEC.md`: paragraphs aren't wrapped, while the other docs wrap at about 95–100 characters.
+
+#### 7. Integration Risk — PASS
+- (minor) `plans/ROADMAP.md:113`: no phase adds `[observability] enabled = true` or the `[triggers] crons` entry, though Phase 2–3 exit checks read Worker logs.
+- (minor) `plans/ROADMAP.md:219`: Phase 3's callback doesn't say it takes no Discord claim and posts nothing until Phase 5.
+- (minor) `docs/SPEC.md:112`: the retry UPDATE doesn't clear `error`.
+
+#### 8. Error Handling & Silent Failures — FAIL
+Most failure paths have fixed, ID-only log lines and scoped catches. Three paths remain silent:
+- (major) `docs/SPEC.md:300`: a Retry request that fails before touching the row (network error or 5xx) leaves the same failed Waffle on the next poll with no signal, and the retry route has no log line.
+- (major) `docs/SPEC.md:269`: in the post-callback Discord path, a D1 failure while storing `discord_message_id` or `discord_error`, or any other throw, is neither logged nor stored. The result is an orphan message and an unexplained Waffle. The Post to Discord again route has the same gap.
+- (major) `docs/SPEC.md:225`: OAuth callback failures other than "not a member" have no user message and no log line: a rejected token exchange, a Discord 429/5xx or network error, a state-cookie mismatch, or a D1 session insert error. They risk being shown as "not a member".
+- (minor) `docs/SPEC.md:259`: R2 HEAD and finish failures in complete, and the `size_mismatch` and `parts_rejected` rejections, have no log line.
+- (minor) `docs/SPEC.md:253`: a D1 failure on the final row DELETE in delete or abort has no specified response or log line.
+- (minor) `docs/SPEC.md:56`: the could-not-finish message never says "tell the admin", and a failed localStorage write silently makes an upload non-resumable.
+- (minor) `docs/SPEC.md:102`: a valid signed callback that changes no row isn't logged, and the spec doesn't say whether that is deliberate.
+
+### To-Do: Required Changes
+
+- [x] **Specify OAuth callback failures** — `docs/SPEC.md` (Auth ~line 225, Tests worth writing), `plans/ROADMAP.md` (Phase 1 exit criteria) — A rejected token exchange, a Discord 429/5xx or network error on `/users/@me` or `/users/@me/guilds`, a missing or mismatched state cookie, and a D1 error creating the session each show a fixed "Sign-in failed; try again, or tell the admin." page, distinct from "not a member". Each writes one fixed, ID-free line (`auth callback: state mismatch`, `auth callback: discord <status code or network>`, `auth callback: error`) and never logs the code, tokens or body. Add test cases.
+- [ ] **Handle a failed Retry request** — `docs/SPEC.md` (Upload screen ~line 300, Player Retry, retry route ~line 112, Tests worth writing) — A Retry answered with a network error, a 5xx or any non-409 error shows a fixed "Could not retry; try again, or tell the admin." instead of silently polling. An unexpected retry-route error writes `retry: error <waffle id>`. In the same pass, add `error = NULL` to the retry UPDATE (or say `error` matters only while `status = failed`).
+- [ ] **Log post-callback Discord failures** — `docs/SPEC.md` (Discord ~lines 269-276, Tests worth writing) — Wrap the `ctx.waitUntil` post, and the Post to Discord again route, in a catch that writes one fixed `discord post: error <waffle id>` line with no error text. Add a test: Discord accepts the post, then the D1 update that stores `discord_message_id` fails.
+- [ ] **Test signed-out access on every /api route** — `docs/SPEC.md` (Tests worth writing), `plans/ROADMAP.md` (exit criteria of Phases 2, 4, 5, 6 for the routes each builds) — Add a table-driven test over every `/api` route except the callback: no session gives 401 and no state change. Include a removed member (`active = 0`) on one mutating route.
+- [ ] **Define and test the Archive filters** — `docs/SPEC.md` (`GET /api/waffles` ~line 245, Tests worth writing), `plans/ROADMAP.md` (Phase 4 exit criteria ~line 329) — Define `year` (the heatmap year, i.e. the year of `week_start`'s Wednesday, to match CLAUDE.md), validate `member`, `year` and `week_start` (400 with a code), and add API tests for each filter, their combinations, newest-first order and the late-December/January boundary. Add a Phase 4 check that the Archive, filtered by member and by year, shows exactly the seeded Waffles.
+- [ ] **Decide whether to keep the abandoned-upload sweep** — `docs/SPEC.md` (~lines 62-63, Abort or Delete, Storage layout, Tests worth writing ~line 393), `plans/ROADMAP.md` (Phase 2) — Either drop the sweep (keep the R2 lifecycle rule plus the owner's Cancel upload, with leftover rows removed by hand), or keep it and cite the decision next to it. If kept, add tests that `POST /api/uploads` triggers it and that a throwing sweep leaves the route's response unchanged.
+- [ ] **Close the remaining simplicity re-asks against their decisions** — `docs/SPEC.md` (~lines 39, 74, 108, 230, 255, 269, 357, 382), `README.md:52` — Review 5's Simplicity reviewer re-raised the token expiry check, WAF rule, hardening cluster, Abort or Delete invariants, Origin hook, Discord claim, Racing runs, rotation runbooks and test list. Each is already decided (dd-261027-059, dd-261028-011, dd-261028-009, dd-261028-013, dd-261029-023, dd-261027-031) or was trimmed in Review 4. Tick this if you are keeping them; otherwise reopen the named decision.
+- [ ] **Log complete's and the row-delete's remaining failures** — `docs/SPEC.md` (~lines 253, 259, Tests worth writing) — Add fixed, ID-only lines `complete: r2 failed <waffle id> <finish|head>` and `complete: rejected <waffle id> <parts_rejected|size_mismatch>`. Specify a D1 failure on the final row DELETE as a 5xx with a fixed message plus `delete: row failed <waffle id>` / `abort: row failed <waffle id>`. Optionally log `callback: no change <waffle id>` for a signed, valid callback that changes no row, or say it is deliberately unlogged (~line 102).
+- [ ] **Improve the could-not-finish and resume messages** — `docs/SPEC.md` (Failed uploads ~line 56, Upload steps ~line 49) — Append "or tell the admin" to the 5xx message, and show a note when the Upload screen cannot save resume state to localStorage.
+- [ ] **Widen the dispatch-target test** — `docs/SPEC.md:389` — Cover every R2-touching route (uploads, parts, abort, DELETE, GET presigns), checking that a bad `TRANSCODE_ENV` makes no R2 call, and assert the bucket name in the signed request for `prod` → `waffles` and `dev` → `waffles-dev`.
+- [ ] **Test logout and the cookie attributes** — `plans/ROADMAP.md` (Phase 1 exit criteria ~line 144), `docs/SPEC.md` (Tests worth writing) — After logout, the old cookie gets 401. Assert HttpOnly, Secure and SameSite=Lax on the login `Set-Cookie`.
+- [ ] **Fill Phase 3–4 media and download drills** — `plans/ROADMAP.md` (Phase 3 ~line 233, Phase 4 ~line 329), `docs/SPEC.md` (Player) — For each clip, compare ffprobe width, height, frame rate and duration of original and playback (except where the cap applies). Add a portrait 4K clip with a rotation flag, and assert the HDR clip's playback is `bt709` with `is_hdr = 1`. Add a drill that deletes a Waffle mid-run and then finds nothing under `playback/{id}/`. Add a Phase 4 check that Download original saves a byte-identical file under its readable name on iOS Safari and desktop. Define what the Waffle screen does when its 6-hour GET URLs expire (refetch `/api/waffles/:id`).
+- [ ] **Fix the poster edge cases** — `docs/SPEC.md:87` — Take the poster at min(1 s, duration/2), or fall back to the first frame, and scale it down only (never above the source width).
+- [ ] **Schedule Workers Logs and the Cron trigger, and fence Phase 3's callback** — `plans/ROADMAP.md` (Phase 0 ~line 113, Phase 3 ~line 219) — Put `[observability] enabled = true` in Phase 0's Wrangler-config bullet and the `[triggers] crons` entry in Phase 3. State that Phase 3's callback applies the guarded UPDATE only and takes no Discord claim until Phase 5.
+- [ ] **Add the minor security hardening** — `docs/SPEC.md` (~lines 76, 227, 230, 306, 349), `plans/ROADMAP.md:281` — State that the workflow has only a `workflow_dispatch` trigger. Add CSP `frame-ancestors 'none'` and `nosniff` in the server hook, and say user and callback text is never rendered as HTML. Say login mints a fresh session token and drops the Discord access token. Consider a `waffles-dev`-only R2 token for `.dev.vars`. Have the hand-curl drill pass the token header via `-H @file` or `-K -`. `Sec-Fetch-Site` is optional.
+- [ ] **Match log placeholders and decide SPEC's wrap** — `README.md:123`, `README.md:129`, `docs/SPEC.md` — Use `<waffle id>` in place of `<id>`, and either wrap SPEC prose at about 95 characters or leave it unwrapped on purpose.
+
+### Missed Findings
+
+| Finding | Severity | Unit | Ledger id |
+|---|---|---|---|
+| No signed-out 401 check on mutating `/api` routes (`docs/SPEC.md:262`) | major | subagent-4:test-coverage | not logged |
+| A failed Retry request gives no signal and no log line (`docs/SPEC.md:300`) | major | subagent-8:error-handling | not logged |
+| Post-callback Discord failures are neither logged nor stored (`docs/SPEC.md:269`) | major | subagent-8:error-handling | not logged |
+| The abandoned-upload sweep duplicates the R2 lifecycle rule (`docs/SPEC.md:62`) | major | subagent-3:simplicity | not logged |
+
+Not logged: the ledger is dormant and logs critical misses only. Minor misses (dispatch-target test, clip checks, sweep trigger, error-handling minors, curl drill, Integration Risk minors) were skipped for the same reason. Findings that reopen decided DDs, and findings on lines from before `b0e089f`, are not counted as misses.

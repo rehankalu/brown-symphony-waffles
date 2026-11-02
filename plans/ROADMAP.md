@@ -142,14 +142,15 @@ and its lifecycle rule aborts multipart uploads left incomplete for 7 days
   [SPEC Environments](../docs/SPEC.md#environments).
 
 **Exit criteria.** All four can sign in from their phones, and a Discord account outside the
-server cannot. Once in the server, that account (the admin's second account, joined for the
-check and removed after; no seeded `members` row is touched) still has no row in `members`,
-so it sees the "not a member" page and gets no session (rule:
-[SPEC Auth](../docs/SPEC.md#auth)). A member signed in before a redeploy of the Worker is
-still signed in after it. A `POST /auth/logout` with a
-valid session cookie and an `Origin` of another site gets 403 `bad_origin` and the session
-still works; each later route's cross-site cases follow with the phase that builds it
-(Phases 2 to 5).
+server cannot. Once in the server, that account (the admin's second account, joined for the check
+and removed after; no seeded `members` row is touched) still has no row in `members`, so it sees
+the "not a member" page and gets no session (rule: [SPEC Auth](../docs/SPEC.md#auth)). A member
+signed in before a redeploy of the Worker is still signed in after it. Opening `/auth/callback`
+with a made-up `code` and `state`, without starting sign-in first, shows the "Sign-in failed"
+page, not "not a member", sets no session cookie and writes `auth callback: state mismatch` to
+the Worker log; tests cover the other callback failures. A `POST /auth/logout` with a valid
+session cookie and an `Origin` of another site gets 403 `bad_origin` and the session still works;
+each later route's cross-site cases follow with the phase that builds it (Phases 2 to 5).
 
 **Why here.** Every `/api` route but the transcode callback requires a session.
 
