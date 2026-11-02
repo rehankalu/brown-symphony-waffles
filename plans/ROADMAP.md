@@ -268,7 +268,11 @@ ffmpeg (for example with `-an`, and by truncating a file), as are the 10-bit, MP
 clips, and no test clip is committed. An `.m4v` clip made with ffmpeg reaches `ready`,
 while a Matroska file and an `ffconcat version 1.0` file naming another file, each renamed
 to `clip.mp4`, end `failed` with a `probe:` error and start no ffmpeg (rule: **Untrusted
-file** in [SPEC Transcode](../docs/SPEC.md#transcode)).
+file** in [SPEC Transcode](../docs/SPEC.md#transcode)). A 0.5-second 640x360 clip made with
+ffmpeg reaches `ready` with a poster exactly 640 px wide, a one-frame clip and a clip whose
+0.3-second video track ends before its 5 seconds of audio each reach `ready` with a non-empty
+poster, and the portrait clip's poster is portrait (rule: the poster step in
+[SPEC Transcode](../docs/SPEC.md#transcode)).
 With an invalid dispatch token, a completed upload ends `failed` with the token message from
 **Rejected dispatch** in [SPEC Transcode](../docs/SPEC.md#transcode), the token appears in
 no stored error, API response or Worker log, and the original stays in R2. After a rejected dispatch, another
