@@ -137,8 +137,8 @@ multipart uploads left incomplete for 7 days (rules: [SPEC Upload](../docs/SPEC.
 **Goal.** Only the four members can get in. **Advances capabilities:** 6.
 
 - Discord OAuth, guild and `members` checks, sessions, the four members seeded.
-- The cross-site Origin and JSON checks from [SPEC Auth](../docs/SPEC.md#auth), as a server
-  hook that every later POST and DELETE route passes through.
+- The cross-site Origin and JSON checks and the response headers from
+  [SPEC Auth](../docs/SPEC.md#auth), as a server hook that every later route passes through.
 - The Discord application, with the Worker secrets `DISCORD_CLIENT_ID`,
   `DISCORD_CLIENT_SECRET` and `DISCORD_GUILD_ID`.
 - The `APP_ORIGIN` var and both Discord redirect URIs, as in
@@ -151,14 +151,15 @@ the "not a member" page and gets no session (rule: [SPEC Auth](../docs/SPEC.md#a
 signed in before a redeploy of the Worker is still signed in after it. Opening `/auth/callback`
 with a made-up `code` and `state`, without starting sign-in first, shows the "Sign-in failed"
 page, not "not a member", sets no session cookie and writes `auth callback: state mismatch` to
-the Worker log; tests cover the other callback failures, the cookie attributes and logout
-(rules: [SPEC Auth](../docs/SPEC.md#auth)). On the deployed app, the browser's dev tools show the
-session cookie with the attributes SPEC Auth names. There is no sign-out button yet, so the admin
-copies their session cookie's value from dev tools and sends `POST /auth/logout` with it by hand
-(with no `Origin` header); a page requested with the same value then redirects to sign-in. The
-value is never pasted into an issue, a commit or a log. A `POST /auth/logout` with a valid session
-cookie and an `Origin` of another site gets 403 `bad_origin` and the session still works; each
-later route's cross-site and signed-out cases follow with the phase that builds it (Phases 2 to 6).
+the Worker log; tests cover the other callback failures, the cookie attributes, the fresh session
+token on each sign-in and logout (rules: [SPEC Auth](../docs/SPEC.md#auth)). On the deployed app,
+the browser's dev tools show the session cookie with the attributes SPEC Auth names, and a page
+response with both of its response headers. There is no sign-out button yet, so the admin copies
+their session cookie's value from dev tools and sends `POST /auth/logout` with it by hand (with no
+`Origin` header); a page requested with the same value then redirects to sign-in. The value is
+never pasted into an issue, a commit or a log. A `POST /auth/logout` with a valid session cookie
+and an `Origin` of another site gets 403 `bad_origin` and the session still works; each later
+route's cross-site and signed-out cases follow with the phase that builds it (Phases 2 to 6).
 
 **Why here.** Every `/api` route but the transcode callback requires a session.
 
@@ -312,10 +313,14 @@ a page and an `/api` route. The deployed Worker's triggers (dashboard or Wrangle
 With the valid token, a deployed upload's `complete` gets GitHub's 204: a
 `transcode <waffle id> (prod)` run appears in the Actions list and the Waffle stays
 `processing` with no `error`. The admin then sends the token expiry check's request by hand
-from a local shell with `curl -sI` and the same four headers, the token read from an
-environment variable, the output filtered to the `github-authentication-token-expiration`
-line, which must be present; the token and the other headers are pasted nowhere (rule: the
-GitHub request headers in [SPEC Transcode](../docs/SPEC.md#transcode)).
+from a local shell with `curl -sI` and the same four headers. The token is read from an
+environment variable, never typed into a command, and the `Authorization` header reaches curl
+either on stdin through `-K -` (printed by the `printf` builtin) or from a file outside the
+repo, mode 600 and deleted afterwards, through `-H @file`, so the token never appears in a
+process's arguments or the shell history. The output is filtered to the
+`github-authentication-token-expiration` line, which must be present; the token and the other
+headers are pasted nowhere (rule: the GitHub request headers in
+[SPEC Transcode](../docs/SPEC.md#transcode)).
 A hand dispatch with `env=prod` and a `waffle_id` that is not a ULID and holds shell
 metacharacters (for example `$(id)`) fails before downloading anything, the input check's
 output is only the fixed rejection message, and no callback arrives; a hand dispatch
@@ -384,7 +389,9 @@ or that year's Waffles, grouped by week, newest first, with a Waffle filed to th
 Wednesday 31 December 2025 under 2025. Delete passes its cross-site, signed-out and
 dispatch-target bucket cases and, from **Delete and abort** in
 [SPEC Tests worth writing](../docs/SPEC.md#build-plan), a failure at each of its R2 calls
-followed by a repeat that finishes.
+followed by a repeat that finishes. This phase's screens, and Phase 2's Unfinished uploads,
+pass the **Text rendering** cases in [SPEC Tests worth writing](../docs/SPEC.md#build-plan)
+(rule: [SPEC UI](../docs/SPEC.md#ui)).
 
 **Why here.** It needs ready playback copies from Phase 3 and the read routes from Phases 2
 and 3.
