@@ -113,18 +113,21 @@ delivered). Status markers: `done (YYYY-MM-DD)`, `active`, `planned`.
 - Repo and a SvelteKit app deployed to `workers.dev`, served through the custom Worker entry
   (`src/worker.ts`, passing `fetch` through to the adapter), the Wrangler config's `main` and
   its `[build] command`, as in **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
+  The same config sets `[observability] enabled = true`, so the Workers Logs that later exit
+  criteria read, from Phase 1's `auth callback:` lines on, are kept (rule: **Token expiry
+  check** in [SPEC Transcode](../docs/SPEC.md#transcode)).
 - D1 database with the schema and migrations.
 - R2 buckets with CORS and the lifecycle rule, and the R2 API token, with the Worker secrets
   `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` from it and `R2_ACCOUNT_ID` (see
   [SPEC Environments](../docs/SPEC.md#environments)). Each later phase sets the secrets and
   `[vars]` it first needs, in the Worker and in `.dev.vars` as that section describes.
 
-**Exit criteria.** The deployed app returns a page through the custom Worker entry, and
-`db:migrate` runs locally and remotely. Read back from R2 (dashboard or Wrangler), each
-bucket's CORS rule allows `PUT` and the `content-type` header from its expected origins (the
-workers.dev origin on `waffles`, the local `APP_ORIGIN` on `waffles-dev`) and exposes `ETag`,
-and its lifecycle rule aborts multipart uploads left incomplete for 7 days
-(rules: [SPEC Upload](../docs/SPEC.md#upload) and
+**Exit criteria.** The deployed app returns a page through the custom Worker entry, Workers
+Logs in the dashboard shows that request after it has finished, and `db:migrate` runs locally
+and remotely. Read back from R2 (dashboard or Wrangler), each bucket's CORS rule allows `PUT`
+and the `content-type` header from its expected origins (the workers.dev origin on `waffles`,
+the local `APP_ORIGIN` on `waffles-dev`) and exposes `ETag`, and its lifecycle rule aborts
+multipart uploads left incomplete for 7 days (rules: [SPEC Upload](../docs/SPEC.md#upload) and
 [Storage layout](../docs/SPEC.md#storage-layout-r2-bucket-waffles-private)).
 
 **Why here.** Every later phase deploys to this Worker and reads this schema and these buckets.
@@ -207,7 +210,12 @@ until Phase 4's Delete removes them.
 
 **Goal.** Every uploaded Waffle gets a playback copy every device can play. **Advances capabilities:** 2.
 
-- GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, callback.
+- GitHub workflow, probe, remux-or-encode, HDR tone-map, poster, the job's callback.
+- The callback route as in **Callback** in [SPEC Transcode](../docs/SPEC.md#transcode),
+  applying only the guarded `ready` and `failed` `UPDATE`s: it takes no Discord claim and posts
+  nothing until Phase 5 adds the Waffle post. A Waffle that reaches `ready` before then stays
+  unposted, and once Phases 4 and 5 are both deployed its owner sees Post to Discord again on
+  the Waffle screen.
 - The fine-grained PAT, created as in [SPEC Transcode](../docs/SPEC.md#transcode); the
   Worker secrets `GITHUB_DISPATCH_TOKEN`, `TRANSCODE_CALLBACK_SECRET` and
   `DISCORD_WEBHOOK_URL` (the test channel's webhook); the `GITHUB_REPO` and
@@ -226,7 +234,9 @@ until Phase 4's Delete removes them.
   `repository_dispatch` needs Contents: write, which on a public repo lets a leaked
   token change code the workflow runs and expose its secrets, the R2 keys among them.
 - The token expiry check's `scheduled` handler, added to Phase 0's custom Worker entry as in
-  **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture).
+  **Worker entry** in [SPEC Architecture](../docs/SPEC.md#architecture), and the Wrangler
+  config's `[triggers] crons` entry that calls it (rule: **Token expiry check** in
+  [SPEC Transcode](../docs/SPEC.md#transcode)).
 - A minimal webhook poster for the token alerts, ahead of Phase 5: one post to
   `DISCORD_WEBHOOK_URL` with the `allowed_mentions` rule from
   [SPEC Discord notification](../docs/SPEC.md#discord-notification). Phase 5 builds the
@@ -383,8 +393,8 @@ and 3.
 
 **Goal.** The group hears about each Waffle where they already talk. **Advances capabilities:** 3.
 
-- Webhook on `ready`, built on Phase 3's webhook poster, message deleted with the Waffle,
-  and failed posts handled as in
+- Webhook on `ready`, built on Phase 3's webhook poster, with the callback's Discord claim
+  that Phase 3 left out, message deleted with the Waffle, and failed posts handled as in
   [SPEC Discord notification](../docs/SPEC.md#discord-notification).
 
 **Exit criteria.** One message appears per ready Waffle, in a test channel first, with a
